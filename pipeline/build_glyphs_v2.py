@@ -156,12 +156,13 @@ def ink_profile(strokes):
     return L, R
 
 
-def letter_spacing(occ, sc, xh_em=XH_EM):
+def letter_spacing(occ, sc, xh_em=XH_EM, samples=False):
     """How the writer spaces neighbouring letters inside a word, from aligned occurrences (strokes in pt).
 
     clearance: the smallest horizontal distance between the centre lines of two neighbouring letters, over bands of equal
     height (and the bands next to them) - the same quantity the renderer uses to place letters - for letter pairs that
-    are not joined; in x-heights. join_rate: share of neighbouring pairs written in one stroke."""
+    are not joined; in x-heights. join_rate: share of neighbouring pairs written in one stroke.
+    samples=True returns (summary, clearance values)."""
     fits = line_baselines(occ)
     by_word = {}
     for o in occ:
@@ -196,16 +197,19 @@ def letter_spacing(occ, sc, xh_em=XH_EM):
                 clear.append(best / xh_em)
     v = np.array(clear)
     q = lambda p: round(float(np.percentile(v, p)), 4) if len(v) else None
-    return {'unit': 'x-height', 'n': int(len(v)), 'pairs': pairs, 'join_rate': round(joined / pairs, 4) if pairs else None,
+    res = {'unit': 'x-height', 'n': int(len(v)), 'pairs': pairs, 'join_rate': round(joined / pairs, 4) if pairs else None,
             'clearance': {'median': q(50), 'q1': q(25), 'q3': q(75), 'p05': q(5), 'p95': q(95),
                           'mean': round(float(v.mean()), 4) if len(v) else None,
                           'sd': round(float(v.std()), 4) if len(v) else None,
                           'quantiles': [round(float(x), 4) for x in np.percentile(v, np.linspace(0, 100, 21))] if len(v) >= 20 else None}}
+    return (res, v) if samples else res
 
 
-def build(occ, max_variants=MAX_VARIANTS):
+def build(occ, max_variants=MAX_VARIANTS, max_cost=None):
     """max_variants: variants kept per character (farthest-point choice); None keeps every occurrence that passed the
-    outlier checks, so letter shapes appear as often as the writer used them."""
+    outlier checks, so letter shapes appear as often as the writer used them.
+    max_cost: occurrences whose alignment cost (align_v2) is higher are not used as variants (they still count for the
+    measurements); a word is accepted up to the alignment limit, but its least certain letters may be cut wrongly."""
     norm, sc, xh_pt = normalise(occ)
     by = {}
     for o in norm:
@@ -213,6 +217,10 @@ def build(occ, max_variants=MAX_VARIANTS):
     report = {'scale_em_per_pt': sc, 'xheight_pt': xh_pt, 'chars': {}, 'proportions': {}}
     out = {}
     for ch, items in by.items():
+        if max_cost is not None:
+            items = [o for o in items if o.get('cost') is None or o['cost'] <= max_cost]
+            if not items:
+                continue
         h = np.array([np.concatenate(o['strokes'])[:, 1].max() - np.concatenate(o['strokes'])[:, 1].min() for o in items])
         med = float(np.median(h))
         keep = [o for o, hh in zip(items, h) if med > 0 and OUTLIER[0] <= hh / med <= OUTLIER[1]] if len(items) > 2 else items

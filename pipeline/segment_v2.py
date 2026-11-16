@@ -83,13 +83,15 @@ def local_baseline(strokes, idx):
     return f
 
 
-def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean_limit=1.0, lines=None):
+def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean_limit=1.0, lines=None, merge=True):
     """pages_strokes: {page number: list of strokes}. Returns (occurrences, stats).
     With templates (align_v2.Templates) and scale (em per pt) words are aligned by dynamic programming (joined letters
     allowed); without them only words whose stroke groups match the letter count exactly are used.
     Every occurrence also names its word ('word': line, word index) and its joins to the neighbouring letters ('join_in',
     'join_out': index of the stroke whose start / end runs on into the previous / next letter, else None).
-    lines: only use these manifest line indices (e.g. a training split); default all."""
+    lines: only use these manifest line indices (e.g. a training split); default all.
+    merge: put the cut pieces of a letter back together into its pen strokes (align_v2.merge_pieces); False keeps the
+    pieces (the behaviour before joins were recorded, kept for comparison)."""
     if templates is not None:
         from align_v2 import align_word
     occ, stats = [], {'lines': 0, 'words': 0, 'words_ok': 0, 'chars': 0, 'skipped': []}
@@ -116,8 +118,13 @@ def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean
             for k, (w, g) in enumerate(zip(words, groups)):
                 chars = [c for c in w]
                 if templates is not None:
-                    parts, costs, jn = align_word([st[i] for i in g], chars, templates, base_y, scale, limit,
-                                                  mean_limit=mean_limit, joins=True)
+                    if merge:
+                        parts, costs, jn = align_word([st[i] for i in g], chars, templates, base_y, scale, limit,
+                                                      mean_limit=mean_limit, joins=True)
+                    else:
+                        parts, costs = align_word([st[i] for i in g], chars, templates, base_y, scale, limit,
+                                                  mean_limit=mean_limit)
+                        jn = [{'in': None, 'out': None}] * len(chars) if parts is not None else None
                     if parts is None:
                         stats['skipped'].append((li, f'{w!r}: no good alignment'))
                         continue

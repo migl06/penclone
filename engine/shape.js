@@ -32,22 +32,59 @@ const NB = 30, BY0 = -1.1, BH = 0.05;
 
 /**
  * @typedef {{ch: string, polys: number[][][], filled: boolean, w: number, W: number, L: (number|null)[], R: (number|null)[]}} Glyph
- * @typedef {{glyph: Glyph, x: number}} Placed
- * @typedef {{text: string, placed: Placed[], charStart: number[], width: number, missing: string[], substituted: string[], key: string[]}} Word
+ * @typedef {{glyph: Glyph, x: number, join?: boolean}} Placed
+ * @typedef {{text: string, placed: Placed[], charStart: number[], width: number, missing: string[], substituted: string[], key: string[],
+ *   spacing: {clear: (number|undefined)[], joined: boolean[]}}} Word
+ * @typedef {{clearance?: number[], joins?: boolean, widthSd?: number, pressSd?: number}} Style
+ *   clearance: quantiles (em) of the white between neighbouring letters, measured from the writer (else a fixed minimum);
+ *   joins: join letters where the writer's variants were joined; widthSd / pressSd: pen width variation per letter / word.
  */
 
-function pickVariant(variants, pos, r, avoid) {
+/** Entry / exit point of a variant's join (glyph units), or null. */
+const joinPoint = (v, which) => {
+  const k = which === 'in' ? v.ji : v.jo;
+  if (k === undefined || !v.s[k]) return null;
+  const st = v.s[k];
+  return which === 'in' ? st[0] : st[st.length - 1];
+};
+
+/**
+ * Choose a variant. `join`: the exit point of the previous letter if it runs on into this one (then only variants that
+ * start with a join are used, preferring entries at the same height), false if the previous letter ends freely (then
+ * variants with an entry join are avoided), undefined to ignore joins.
+ */
+function pickVariant(variants, pos, r, avoid, join) {
   let pool = variants.map((v, i) => i);
   if (pos) {
     const same = pool.filter((i) => variants[i].pos === pos);
     if (same.length >= 2) pool = same;
   }
+  if (join !== undefined) {
+    const want = !!join;
+    const fit = pool.filter((i) => (variants[i].ji !== undefined) === want);
+    if (fit.length) pool = fit;
+  }
   if (pool.length > 1 && avoid !== undefined) pool = pool.filter((i) => i !== avoid);
+  if (join && pool.length > 1) {
+    // entries close to the height of the exit are likelier (the writer's own joins meet at the same height)
+    const wts = pool.map((i) => {
+      const p = joinPoint(variants[i], 'in');
+      return p ? Math.exp(-(((p[1] - join[1]) / 0.06) ** 2)) + 1e-6 : 1e-6;
+    });
+    let u = r() * wts.reduce((a, b) => a + b, 0);
+    for (let k = 0; k < pool.length; k++) { u -= wts[k]; if (u <= 0) return pool[k]; }
+  }
   return pool[Math.floor(r() * pool.length)];
 }
 
+/** A value from measured quantiles (equally spaced probabilities from 0 to 1), linearly interpolated. */
+export function fromQuantiles(r, q) {
+  const u = r() * (q.length - 1), i = Math.floor(u), f = u - i;
+  return q[i] + (q[Math.min(i + 1, q.length - 1)] - q[i]) * f;
+}
+
 /** Transform one variant and compute its ink profile. */
-function prepare(ch, v, r, walk, penW) {
+function prepare(ch, v, r, walk, penW, widthSd = SHAPE.widthSd) {
   walk.sz = Math.max(SHAPE.sizeMin, Math.min(SHAPE.sizeMax, 1 + (walk.sz - 1) * SHAPE.sizeKeep + gauss(r) * SHAPE.sizeSd));
   walk.rot = Math.max(-SHAPE.rotMax, Math.min(SHAPE.rotMax, walk.rot * SHAPE.rotKeep + gauss(r) * SHAPE.rotSd));
   const sx = walk.sz * (1 + gauss(r) * SHAPE.sxSd), sy = walk.sz * (1 + gauss(r) * SHAPE.sySd);
@@ -61,7 +98,7 @@ function prepare(ch, v, r, walk, penW) {
     u += a1 * Math.sin(y * k1 + p1); w += a2 * Math.sin(x * k2 + p2);
     return [cx + cr * u - sr * (w + 0.2), sr * u + cr * (w + 0.2) - 0.2];
   };
-  const w = penW * (1 + gauss(r) * SHAPE.widthSd), hw = w / 2;
+  const w = penW * (1 + gauss(r) * widthSd), hw = w / 2;
   let polys = v.s.map((st) => st.map(T));
   let minX = Infinity, maxX = -Infinity;
   for (const q of polys) for (const p of q) { if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0]; }
@@ -84,11 +121,12 @@ function prepare(ch, v, r, walk, penW) {
       for (let k = 1; k < n; k++) mark(q[i - 1][0] + dx * k / n, q[i - 1][1] + dy * k / n);
     }
   }
-  return { ch, polys, filled: !!v.f, w, W, L, R };
+  return { ch, polys, filled: !!v.f, w, W, L, R, ji: v.ji, jo: v.jo };
 }
 
-/** Space after `prev` so that the ink of `g` keeps at least SHAPE.clear away from it (neighbouring bands included). */
-function gapBetween(prev, g) {
+/** Space after `prev` so that the ink of `g` keeps at least `clear` away from it (neighbouring bands included).
+ * minGap: how far the boxes may overlap. */
+function gapBetween(prev, g, clear = SHAPE.clear, minGap = SHAPE.minGap) {
   let mn = Infinity;
   for (let b = 0; b < NB; b++) {
     const pr = prev.R[b];
@@ -99,19 +137,40 @@ function gapBetween(prev, g) {
       if (l !== null && dR + l < mn) mn = dR + l;
     }
   }
-  return mn === Infinity ? 0 : Math.max(SHAPE.minGap, SHAPE.clear - mn);
+  return mn === Infinity ? 0 : Math.max(minGap, clear - mn);
 }
 
-/** Positions of glyphs placed one after another. */
-export function place(glyphs) {
+/**
+ * Positions of glyphs placed one after another.
+ * @param {Glyph[]} glyphs
+ * @param {{clear?: number[], joined?: boolean[]}} [o] clear: white between the ink of glyph i-1 and i (em) per glyph;
+ *   joined: glyph i continues the exit stroke of glyph i-1 (its entry point is put on that exit point).
+ */
+export function place(glyphs, o = {}) {
   /** @type {Placed[]} */ const out = [];
   let x = 0;
   glyphs.forEach((g, i) => {
-    if (i) x += glyphs[i - 1].W + gapBetween(glyphs[i - 1], g);
-    out.push({ glyph: g, x });
+    if (i) {
+      const p = glyphs[i - 1];
+      if (o.joined?.[i] && p.jo !== undefined && g.ji !== undefined) {
+        const e = p.polys[p.jo], s = g.polys[g.ji];
+        x += e[e.length - 1][0] - s[0][0];
+      } else if (o.clear?.[i] !== undefined) {
+        x += p.W + gapBetween(p, g, o.clear[i], WIDE_MIN_GAP);
+      } else {
+        x += p.W + gapBetween(p, g);
+      }
+    }
+    out.push(o.joined?.[i] && i > 0 && glyphs[i - 1].jo !== undefined && g.ji !== undefined ? { glyph: g, x, join: true } : { glyph: g, x });
   });
   return out;
 }
+
+/** Largest height difference (em) between the exit of one letter and the entry of the next that is still joined. */
+const MAX_JOIN_DY = 0.15;
+
+/** With measured spacing, boxes may overlap more (the writer's own letters interleave, e.g. T and o). */
+const WIDE_MIN_GAP = -0.25;
 
 const wordWidth = (placed) => (placed.length ? placed[placed.length - 1].x + placed[placed.length - 1].glyph.W : 0);
 
@@ -119,17 +178,22 @@ const wordWidth = (placed) => (placed.length ? placed[placed.length - 1].x + pla
  * Shape one word (no spaces).
  * @param {import('./glyphs.js').Library} lib
  * @param {string} text
- * @param {{seed: string|number, key: (string|number)[], bold?: boolean, positions?: boolean}} o
+ * @param {{seed: string|number, key: (string|number)[], bold?: boolean, positions?: boolean, style?: Style}} o
  *        key names this word uniquely and stably, e.g. [text, n] for the n-th occurrence of the text in the document.
  * @returns {Word}
  */
 export function shapeWord(lib, text, o) {
+  const st = o.style ?? {};
   const r = stream(o.seed, 'word', ...o.key);
-  const press = Math.max(SHAPE.pressMin, Math.min(SHAPE.pressMax, 1 + gauss(r) * SHAPE.pressSd));
+  const rs = stream(o.seed, 'space', ...o.key);       // own stream: spacing does not change the letter shapes
+  const press = Math.max(SHAPE.pressMin, Math.min(SHAPE.pressMax, 1 + gauss(r) * (st.pressSd ?? SHAPE.pressSd)));
   const penW = SHAPE.pen * (o.bold ? SHAPE.bold : 1) * press;
   const walk = { sz: 1, rot: 0 };
   const last = {};
   /** @type {Glyph[]} */ const glyphs = [];
+  /** @type {(number|undefined)[]} */ const clear = [];
+  /** @type {boolean[]} */ const joined = [];
+  let prevV = null, prevLetter = false;
   const charStart = [], missing = [], substituted = [];
   const chars = [...text];
   // letters only count for the position in the word (punctuation does not start or end a word)
@@ -144,13 +208,27 @@ export function shapeWord(lib, text, o) {
       const vs = /** @type {import('./glyphs.js').Variant[]} */ (lib.chars.get(c));
       const pos = o.positions === false ? undefined
         : first === lastL && i === first ? 'single' : i === first ? 'initial' : i === lastL ? 'final' : 'medial';
-      const vi = pickVariant(vs, pos, r, last[c]);
+      const letter = /\p{L}|\p{N}/u.test(c);
+      const exit = st.joins && prevV && prevLetter && letter ? joinPoint(prevV, 'out') : null;
+      const vi = pickVariant(vs, pos, r, last[c], st.joins ? (exit ?? false) : undefined);
       last[c] = vi;
-      glyphs.push(prepare(c, vs[vi], r, walk, penW));
+      const g = prepare(c, vs[vi], r, walk, penW, st.widthSd);
+      let jn = !!exit && vs[vi].ji !== undefined;
+      if (jn) {
+        // a join that would have to bridge a large height difference looks drawn, not written: lift the pen instead
+        const pg = glyphs[glyphs.length - 1], e = pg.polys[pg.jo ?? -1], sIn = g.polys[g.ji ?? -1];
+        if (!e || !sIn || Math.abs(e[e.length - 1][1] - sIn[0][1]) > MAX_JOIN_DY) jn = false;
+      }
+      joined.push(jn);
+      // measured clearance is between centre lines; the ink profile includes the pen, so subtract one pen width
+      clear.push(st.clearance ? fromQuantiles(rs, st.clearance) - penW : undefined);
+      glyphs.push(g);
+      prevV = vs[vi]; prevLetter = letter;
     }
   });
-  const placed = place(glyphs);
-  return { text, placed, charStart, width: wordWidth(placed), missing, substituted, key: o.key.map(String) };
+  const spacing = { clear, joined };
+  const placed = place(glyphs, spacing);
+  return { text, placed, charStart, width: wordWidth(placed), missing, substituted, key: o.key.map(String), spacing };
 }
 
 /**
@@ -183,9 +261,13 @@ export function splitWord(lib, word, at, o) {
       headText += '-';
     }
   }
-  const head = place(headG), tail = place(tailG);
+  const sp = word.spacing ?? { clear: [], joined: [] };
+  const headSp = { clear: sp.clear.slice(0, gi), joined: sp.joined.slice(0, gi) };
+  while (headSp.clear.length < headG.length) { headSp.clear.push(sp.clear[gi]); headSp.joined.push(false); }
+  const tailSp = { clear: [undefined, ...sp.clear.slice(gi + 1)], joined: [false, ...sp.joined.slice(gi + 1)] };
+  const head = place(headG, headSp), tail = place(tailG, tailSp);
   return [
-    { ...word, text: headText, placed: head, width: wordWidth(head), charStart: headStart },
-    { ...word, text: tailText, placed: tail, width: wordWidth(tail), charStart: cs(at, chars.length), key: [...word.key, 'tail', String(at)] },
+    { ...word, text: headText, placed: head, width: wordWidth(head), charStart: headStart, spacing: headSp },
+    { ...word, text: tailText, placed: tail, width: wordWidth(tail), charStart: cs(at, chars.length), key: [...word.key, 'tail', String(at)], spacing: tailSp },
   ];
 }

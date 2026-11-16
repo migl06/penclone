@@ -9,6 +9,9 @@ import { shapeWord, splitWord } from './shape.js';
 import { wordBreaks } from './hyphenate.js';
 import { resolvePaper, writingArea } from './paper.js';
 
+/** Length (x-heights) over which the two ends of a join are bent towards each other. */
+const JOIN_SPAN = 0.4;
+
 export const PAGES = { a4: [210, 297], a5: [148, 210], letter: [215.9, 279.4] };   // mm (ISO 216, ANSI)
 
 export const LAYOUT = {
@@ -41,7 +44,28 @@ export function measured(layoutJson) {
   if (sl && sl.n >= 10) m.slopeDeg = { mean: sl.mean, sd: sl.sd };
   const d = layoutJson.drift;
   if (d && d.model === 'exponential') m.drift = { sd: d.drift_sd, range: d.range };
+  const ls = layoutJson.letter_spacing;
+  if (ls && ls.n >= 30 && ls.clearance?.quantiles) m.letterClearance = ls.clearance.quantiles;
   return m;
+}
+
+/**
+ * Join the entry stroke `b` onto the exit stroke `a` (both in mm, a ends where b starts up to a small offset): the ends
+ * are bent towards each other over `span` mm with a raised-cosine weight, so the joint has no kink, then concatenated.
+ */
+export function joinStrokes(a, b, span) {
+  const e = a[a.length - 1], s = b[0];
+  const dx = (s[0] - e[0]) / 2, dy = (s[1] - e[1]) / 2;
+  const bend = (pts, sx, sy) => {
+    let d = 0;
+    return pts.map((p, i) => {
+      if (i) d += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
+      const w = d >= span ? 0 : 0.5 * (1 + Math.cos(Math.PI * d / span));
+      return [p[0] + sx * w, p[1] + sy * w];
+    });
+  };
+  const a2 = bend([...a].reverse(), dx, dy).reverse(), b2 = bend(b, -dx, -dy);
+  return [...a2, ...b2.slice(1)];
 }
 
 /** Log-normal draw with the given median and quartiles (sigma from the interquartile range). */
@@ -96,6 +120,7 @@ export function simplify(pts, eps) {
  * @param {import('./glyphs.js').Library} lib
  * @param {string} text
  * @param {Partial<typeof LAYOUT> & {seed?: string|number, hyphenator?: any, positions?: boolean,
+ *   style?: import('./shape.js').Style, letterClearance?: number[], measuredSpacing?: boolean,
  *   paper?: string|import('./paper.js').Paper, grid?: number, penScale?: number, rules?: number[], maxPages?: number}} [options]
  *   paper: built-in name or scan template; rules: explicit baselines (one page, e.g. a worksheet field);
  *   maxPages: stop after this many pages and return the rest as `unplaced`.
@@ -114,12 +139,16 @@ export function layout(lib, text, options = {}) {
   const left = o.rules ? ml : area.left;
   const maxW = (o.rules ? pw - mr : area.right) - left;
   const penScale = o.penScale ?? 1;
+  const style = { ...(o.style ?? {}) };
+  if (style.clearance === undefined && o.letterClearance && o.measuredSpacing !== false) {
+    style.clearance = o.letterClearance.map((v) => v * lib.xHeight);
+  }
   const missing = {}, substituted = {}, overflow = [];
   const seen = new Map();
   const shape = (w) => {
     const n = (seen.get(w) ?? 0) + 1;
     seen.set(w, n);
-    const s = shapeWord(lib, w, { seed, key: [w, n], positions: o.positions });
+    const s = shapeWord(lib, w, { seed, key: [w, n], positions: o.positions, style });
     for (const c of s.missing) missing[c] = (missing[c] ?? 0) + 1;
     for (const c of s.substituted) substituted[c] = (substituted[c] ?? 0) + 1;
     return s;
@@ -181,18 +210,29 @@ export function layout(lib, text, options = {}) {
     const slope = Math.tan((o.slopeDeg.mean + gauss(r) * o.slopeDeg.sd) * Math.PI / 180);
     const drift = driftFn(r, o.drift, maxW / xh);
     const base = rule - o.baselineOffset * xh;
-    /** @type {Stroke[]} */ const strokes = [];
+    /** @type {Stroke[]} */ const raw = [];
     for (const { word, x } of ln.words) {
-      for (const { glyph, x: gx } of word.placed) {
+      /** @type {Stroke|null} */ let exit = null;      // the previous letter's stroke that runs on into the next letter
+      for (const { glyph, x: gx, join } of word.placed) {
         const gl = x + gx * k;
         const center = gl + glyph.W * k / 2;
         const y0 = base + drift(center / xh) * xh + center * slope;
-        for (const q of glyph.polys) {
+        /** @type {Stroke|null} */ let myExit = null;
+        glyph.polys.forEach((q, qi) => {
           const pts = q.map(([px, py]) => [x0 + gl + px * k, y0 + py * k]);
-          strokes.push({ pts: glyph.filled ? pts : simplify(pts, o.simplify), w: glyph.w * k * penScale, filled: glyph.filled });
-        }
+          if (join && exit && qi === glyph.ji) {
+            exit.pts = joinStrokes(exit.pts, pts, JOIN_SPAN * xh);
+            if (qi === glyph.jo) myExit = exit;
+            return;
+          }
+          const s = { pts, w: glyph.w * k * penScale, filled: glyph.filled };
+          raw.push(s);
+          if (qi === glyph.jo) myExit = s;
+        });
+        exit = myExit;
       }
     }
+    const strokes = raw.map((s) => (s.filled ? s : { ...s, pts: simplify(s.pts, o.simplify) }));
     pages[pi].lines.push({ strokes, rule, text: ln.words.map((w) => w.word.text).join(' ') });
   });
   if (!pages.length) pages.push({ width: pw, height: ph, lines: [], paper, top: mt });
