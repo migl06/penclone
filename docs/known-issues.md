@@ -53,3 +53,5 @@ German version: [de/bekannte-probleme.md](de/bekannte-probleme.md).
 | P2 | DOM-free engine: own layout + hyphenation, line model, per-position seeds, one path per line | C2–C5, B3 |
 | P3 | Paper, pens, iPad output; CLI, MCP server and skill; worksheet filling | see [decisions.md](decisions.md) |
 | P4 | Measure: OCR error rate, HWD, blind test | justify parameters, validate R5 |
+| P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | thresholds no longer an assumption |
+| P6 | **Packaging and user guide**: one npm package (CLI + MCP server; pipeline ported to TypeScript or shipped via pipx so users need no manual Python setup) + end-user guide (EN/DE) | install with one command |

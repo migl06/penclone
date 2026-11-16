@@ -52,6 +52,8 @@ the same commands, so nothing is ever possible in one interface but not in the o
 
 | Step | CLI | MCP tool | Skill |
 |---|---|---|---|
+| See the state and the next step | `penclone status`, wizard `penclone init` | `get_status` | ✓ follows it |
+| Add your own paper template | `penclone template add NAME --from scan.pdf` | `add_template` | ✓ |
 | Create / list / show a handwriting profile (**done:** `pipeline/profiles.py`) | `penclone profile create NAME --pdf …` | `create_profile`, `list_profiles` | ✓ |
 | Back up or move a profile (**done**) | `penclone profile export NAME file.zip` / `import` | `export_profile` | ✓ |
 | Create a sample sheet to write on (PDF / iPad template) | `penclone sample-sheet --lang de` | `create_sample_sheet` | ✓ explains how to write it |
@@ -258,6 +260,59 @@ Your own paper also works as a template: `--paper my_paper_scan.pdf` uses any sc
 - Nothing is uploaded anywhere by penclone. Only what an AI client itself sends (e.g. a preview image you let it look at) leaves
   your computer.
 
+## 11. Onboarding: penclone knows the next step, the AI (or a wizard) asks only what matters
+
+**Decision: the next step is computed by penclone itself, not guessed by the AI, and every interface shows it the same way.**
+
+- `penclone status` returns the current state and the **next step**, e.g. “no profile → create a sample sheet”, “samples
+  imported, not built → build”, “report has warnings → review”, “ready”. The MCP tool `get_status` returns the same; the skill
+  tells the agent to call it first and follow it; the wizard `penclone init` walks through the same steps without any AI.
+- **Ask only what matters, defaults for the rest.** Progressive disclosure – deferring rarely used options – makes software easier
+  to learn and less error-prone (Nielsen 2006, Nielsen Norman Group; empirical evidence is reported to be limited). The first run
+  asks three things: language, output (`paper` / `ipad`), paper. Pen, colour and sizes start with defaults.
+- **Choices are remembered** as `preferences` in the profile (default output, pen, colour, paper). Preferences are the user's own
+  defaults and can always be changed – unlike the general glyph rules, which users cannot change.
+- **The AI suggests, the user decides:** from the task the AI proposes options (e.g. “worksheet → write on the scan itself”),
+  shows a preview and asks before writing files.
+- First run: create profile → open/print the sample sheet → write the sentences (2–4 pages) → import → build and report
+  (penclone explains warnings) → first preview → done.
+
+## 12. Paper templates: built in, your own, and how one is chosen
+
+**Decision: built-in templates are generated from parameters (no image files, exact at any size); your own templates live in your
+profile; the paper is chosen in a fixed order.**
+
+Built-in templates (in the repository, the same for everyone; every value can be overridden, e.g. `--line-spacing 8mm --page a5`):
+
+| Name | Type | Spacing | Source |
+|---|---|---|---|
+| `blank` | no lines | – | – |
+| `lined-narrow` / `lined-college` / `lined-wide` | lined | 6.35 / 7.1 / 8.7 mm (1/4, 9/32, 11/32 in) | US ruled paper ([Wikipedia](https://en.wikipedia.org/wiki/Ruled_paper) and retailer data) |
+| `lin27` | lined, double margin | 9 mm | German Lineatur 27 (one retailer source) |
+| `lin22`, `lin26` | squared, without / with margin | 5 mm | German Lineatur 22 / 26 |
+| `lin28` | squared, double margin | 5 mm (assumption) | German Lineatur 28 (spacing not found) |
+| `dotted` | dot grid | 5 mm (assumption) | – |
+
+Your own templates (stored in your profile, never in the repository):
+
+```
+penclone template add my-pad --from empty_page_scan.pdf     # measures line spacing, grid and margins from a scan of an empty page
+penclone template add my-pad --type lined --line-spacing 7mm --margin-left 20mm
+```
+
+With `--from`, penclone detects the lines (Hough transform) and can keep the scan as background for a real paper look.
+
+How the paper is chosen (first match wins):
+
+1. explicitly given (`--paper …`, or what the AI passes after asking you)
+2. the task: when filling a worksheet, the worksheet scan itself is the paper
+3. your profile preference (`preferences.paper`)
+4. the paper your samples were written on (sample sheet v2 is lined at your spacing), so size and lines match by default
+5. `blank`
+
+`penclone styles` lists built-in and own templates; the MCP tool `list_styles` returns them with small preview images so the AI
+can show the choice.
+
 ## Target architecture
 
 ```
@@ -287,4 +342,6 @@ outputs: pdf · svg · png · xopp · excalidraw · inkml
 | P2 | DOM-free engine: layout + hyphenation, line model, per-position seeds, one path per line | smaller PDFs, stable output |
 | P3 | Paper + pens + iPad style; CLI, MCP server and skill with full parity | every step usable from the CLI, any MCP client or the skill |
 | P4 | Measure: OCR error rate (German TrOCR), HWD, blind test | parameters justified |
+| P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | thresholds no longer an assumption |
+| P6 | **Packaging and user guide**: one npm package (CLI + MCP server; pipeline ported to TypeScript or shipped via pipx so users need no manual Python setup) + end-user guide (EN/DE) | install with one command |
 | later | English language pack, OpenType export | – |

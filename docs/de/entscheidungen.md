@@ -50,6 +50,8 @@ darüber; nichts geht nur in einer Oberfläche und in der anderen nicht.
 
 | Schritt | CLI | MCP-Werkzeug | Skill |
 |---|---|---|---|
+| Stand und nächsten Schritt sehen | `penclone status`, Assistent `penclone init` | `get_status` | ✓ folgt ihm |
+| Eigene Papiervorlage hinzufügen | `penclone template add NAME --from scan.pdf` | `add_template` | ✓ |
 | Handschrift-Profil anlegen / auflisten / anzeigen (**fertig:** `pipeline/profiles.py`) | `penclone profile create NAME --pdf …` | `create_profile`, `list_profiles` | ✓ |
 | Profil sichern oder umziehen (**fertig**) | `penclone profile export NAME datei.zip` / `import` | `export_profile` | ✓ |
 | Probeblatt zum Beschreiben erzeugen (PDF / iPad-Vorlage) | `penclone sample-sheet --lang de` | `create_sample_sheet` | ✓ erklärt, wie man es schreibt |
@@ -257,6 +259,61 @@ Auch dein eigenes Papier geht als Vorlage: `--paper mein_papier_scan.pdf` nimmt 
 - penclone lädt nichts hoch. Nur was ein KI-Programm selbst verschickt (z. B. ein Vorschaubild, das du es ansehen lässt), verlässt
   deinen Rechner.
 
+## 11. Einweisung: penclone kennt den nächsten Schritt, die KI (oder ein Assistent) fragt nur das Nötige
+
+**Entscheidung: Den nächsten Schritt berechnet penclone selbst – die KI rät ihn nicht –, und jede Oberfläche zeigt ihn gleich an.**
+
+- `penclone status` liefert den Stand und den **nächsten Schritt**, z. B. „kein Profil → Probeblatt erzeugen“, „Proben importiert,
+  nicht gebaut → bauen“, „Bericht hat Warnungen → ansehen“, „bereit“. Das MCP-Werkzeug `get_status` liefert dasselbe; der Skill sagt
+  der KI, es zuerst aufzurufen und ihm zu folgen; der Assistent `penclone init` führt ohne KI durch dieselben Schritte.
+- **Nur das Nötige fragen, Standardwerte für den Rest.** Progressive Disclosure – selten gebrauchte Optionen nach hinten
+  verschieben – macht Software leichter erlernbar und weniger fehleranfällig (Nielsen 2006, Nielsen Norman Group; die empirische
+  Basis gilt als dünn). Beim ersten Start drei Fragen: Sprache, Ausgabe (`paper` / `ipad`), Papier. Stift, Farbe und Größen starten
+  mit Standardwerten.
+- **Antworten werden gemerkt** als `preferences` im Profil (Standard-Ausgabe, Stift, Farbe, Papier). Das sind die eigenen
+  Voreinstellungen des Nutzers und jederzeit änderbar – anders als die allgemeinen Glyphen-Regeln, die Nutzer nicht ändern können.
+- **Die KI schlägt vor, der Nutzer entscheidet:** Aus der Aufgabe schlägt die KI Optionen vor (z. B. „Arbeitsblatt → direkt auf den
+  Scan schreiben“), zeigt eine Vorschau und fragt, bevor sie Dateien schreibt.
+- Erster Start: Profil anlegen → Probeblatt öffnen/drucken → Sätze schreiben (2–4 Seiten) → importieren → bauen und Bericht
+  (penclone erklärt Warnungen) → erste Vorschau → fertig.
+
+## 12. Papiervorlagen: eingebaut, eigene, und wie eine gewählt wird
+
+**Entscheidung: Eingebaute Vorlagen werden aus Parametern erzeugt (keine Bilddateien, in jeder Größe exakt); eigene Vorlagen liegen
+in deinem Profil; das Papier wird in fester Reihenfolge gewählt.**
+
+Eingebaute Vorlagen (im Repo, für alle gleich; jeder Wert lässt sich überschreiben, z. B. `--line-spacing 8mm --page a5`):
+
+| Name | Art | Abstand | Quelle |
+|---|---|---|---|
+| `blank` | ohne Linien | – | – |
+| `lined-narrow` / `lined-college` / `lined-wide` | liniert | 6,35 / 7,1 / 8,7 mm (1/4, 9/32, 11/32 Zoll) | US-Liniaturen ([Wikipedia](https://en.wikipedia.org/wiki/Ruled_paper) und Händlerangaben) |
+| `lin27` | liniert, Doppelrand | 9 mm | Lineatur 27 (eine Händlerquelle) |
+| `lin22`, `lin26` | kariert, ohne / mit Rand | 5 mm | Lineatur 22 / 26 |
+| `lin28` | kariert, Doppelrand | 5 mm (Annahme) | Lineatur 28 (Abstand nicht gefunden) |
+| `dotted` | Punktraster | 5 mm (Annahme) | – |
+
+Eigene Vorlagen (in deinem Profil, nie im Repo):
+
+```
+penclone template add mein-block --from leere_seite_scan.pdf    # misst Zeilenabstand, Raster und Ränder aus dem Scan einer leeren Seite
+penclone template add mein-block --type lined --line-spacing 7mm --margin-left 20mm
+```
+
+Mit `--from` erkennt penclone die Linien (Hough-Transformation) und kann den Scan als Hintergrund behalten – für echten Papier-Look.
+
+Wie das Papier gewählt wird (das erste Zutreffende gilt):
+
+1. ausdrücklich angegeben (`--paper …`, oder was die KI nach Rückfrage übergibt)
+2. die Aufgabe: Beim Ausfüllen eines Arbeitsblatts ist der Scan selbst das Papier
+3. deine Profil-Voreinstellung (`preferences.paper`)
+4. das Papier, auf dem deine Proben geschrieben sind (Probeblatt v2 ist liniert in deinem Abstand) – so passen Größe und Linien von
+   selbst
+5. `blank`
+
+`penclone styles` listet eingebaute und eigene Vorlagen; das MCP-Werkzeug `list_styles` liefert sie mit kleinen Vorschaubildern,
+damit die KI die Auswahl zeigen kann.
+
 ## Zielarchitektur
 
 ```
@@ -286,4 +343,6 @@ Ausgaben: pdf · svg · png · xopp · excalidraw · inkml
 | P2 | Engine ohne DOM: Layout + Silbentrennung, Zeilenmodell, Seeds pro Stelle, ein Pfad pro Zeile | kleinere PDFs, stabile Ausgabe |
 | P3 | Papier + Stifte + iPad-Stil; CLI, MCP-Server und Skill mit vollem Funktionsumfang | jeder Schritt per CLI, MCP oder Skill nutzbar |
 | P4 | Messen: OCR-Fehlerrate (deutsches TrOCR), HWD, Blindtest | Parameter begründet |
+| P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Schwellen keine Annahme mehr |
+| P6 | **Paket und Anleitung**: ein npm-Paket (CLI + MCP-Server; Pipeline nach TypeScript portiert oder per pipx mitgeliefert, damit niemand Python von Hand einrichten muss) + Endnutzer-Anleitung (DE/EN) | Installation mit einem Befehl |
 | später | Englisch-Paket, OpenType-Export | – |

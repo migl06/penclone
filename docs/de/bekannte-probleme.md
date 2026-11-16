@@ -53,3 +53,5 @@ English version: [../known-issues.md](../known-issues.md).
 | P2 | Engine ohne DOM: eigenes Layout + Silbentrennung, Zeilenmodell, Seeds pro Stelle, ein Pfad pro Zeile | C2–C5, B3 |
 | P3 | Papier, Stifte, iPad-Ausgabe; CLI, MCP-Server und Skill; Arbeitsblätter ausfüllen | siehe [entscheidungen.md](entscheidungen.md) |
 | P4 | Messen: OCR-Fehlerrate, HWD, Blindtest | Parameter begründen, R5 bestätigen |
+| P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Schwellen keine Annahme mehr |
+| P6 | **Paket und Anleitung**: ein npm-Paket (CLI + MCP-Server; Pipeline nach TypeScript portiert oder per pipx mitgeliefert, damit niemand Python von Hand einrichten muss) + Endnutzer-Anleitung (DE/EN) | Installation mit einem Befehl |
