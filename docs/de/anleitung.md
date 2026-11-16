@@ -30,7 +30,11 @@ penclone sample-sheet --out sheet.pdf
 
 - **Am iPad (empfohlen):** Öffne `sheet.pdf` in GoodNotes, Notability o. ä. und schreib mit dem Apple Pencil. Exportiere die Seiten
   danach als PDF. Die Striche bleiben dabei Vektoren, das gibt das sauberste Ergebnis.
-- **Auf Papier:** ausdrucken, mit dem Stift schreiben, den penclone nachahmen soll, einscannen.
+- **Direkt im Browser am iPad:** `penclone capture ich` zeigt einen Link. Öffne ihn in Safari auf dem iPad (gleiches WLAN) und
+  schreib die Sätze mit dem Pencil. Mit dem Finger scrollst du, am Ende tippst du „Fertig“. penclone liest alles sofort ein und
+  speichert auch Zeit und Druck.
+- **Noch nicht möglich:** auf Papier schreiben und einscannen. penclone braucht die Striche als Vektoren, ein Scan ist nur ein
+  Bild. (Eingescanntes *leeres* Papier als Vorlage geht dagegen, siehe 5.)
 
 So schreibst du: jeden Satz auf die Linie darunter, normal und in normalem Tempo, nicht extra schön. Vertippt? Den ganzen Satz
 durchstreichen und neu schreiben.

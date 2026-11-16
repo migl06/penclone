@@ -16,7 +16,7 @@ Typical uses: study notes, letters and cards, answers on worksheets, mockups.
 > **Status: early but usable.** Working: handwriting profiles, sample sheets (full or only missing characters), layout with
 > German hyphenation and a line model measured from your samples, paper (lined, squared, dotted, German Lineaturen, your own
 > scanned paper), pens and an iPad look, worksheets, PDF / SVG / PNG and editable ink (Xournal++, InkML, Excalidraw), MCP server,
-> skill. Not yet: iPad capture page, legibility measurement (OCR), npm release. Details: [docs/known-issues.md](docs/known-issues.md),
+> skill. Not yet: legibility measurement (OCR), npm release. Details: [docs/known-issues.md](docs/known-issues.md),
 > [docs/decisions.md](docs/decisions.md).
 
 ## Built on research, not guesswork
@@ -74,7 +74,8 @@ Your handwriting is saved under a name and reused. Profiles live **outside the r
 
 ```bash
 penclone profile create me
-penclone sample-sheet --out sheet.pdf                  # print it, or write it in a notes app on the iPad (~30 min)
+penclone sample-sheet --out sheet.pdf                  # write it in a notes app on the iPad, export as PDF (~30 min)
+penclone capture me                                    # or: write it directly in Safari on the iPad (records time and pressure)
 penclone import me written.pdf --manifest sheet.json   # strokes → glyphs, measures your word gaps and line drift
 penclone sample-sheet --chars "§@" --out missing.pdf   # later: only characters that are missing
 penclone report me --sheet glyphs.png                  # quality report

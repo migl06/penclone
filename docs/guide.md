@@ -26,7 +26,10 @@ penclone sample-sheet --out sheet.pdf
 
 - **On an iPad (recommended):** open the PDF in GoodNotes, Notability or similar, write with the Apple Pencil and export the
   pages as PDF (the strokes stay vectors, which gives the cleanest result).
-- **On paper:** print it, write with the pen you want to imitate, scan it.
+- **Directly in the browser on the iPad:** `penclone capture me` prints a link; open it in Safari on the iPad (same Wi-Fi),
+  write with the Pencil (the finger scrolls), tap “Fertig” – the strokes are imported at once, with time and pressure.
+- **Not possible yet:** writing on paper and scanning it – penclone needs the strokes as vectors; a scan is only an image.
+  (A scan of *empty* paper as a template works, see 5.)
 
 Write every sentence on the line below it, normally and at normal speed – not extra neat. If you slip, cross out the whole
 sentence and write it again.

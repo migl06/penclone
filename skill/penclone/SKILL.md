@@ -22,7 +22,7 @@ Follow `next` (one step). Mention the `optional` steps briefly; do not push them
 | next.id | what to do |
 |---|---|
 | `create-profile` | ask for a profile name, `penclone profile create NAME`, then step `write-samples` |
-| `write-samples` | `penclone sample-sheet --out sheet.pdf`; explain how to write it ([references/writing-samples.md](references/writing-samples.md)); wait for the written PDF; `penclone import NAME written.pdf --manifest sheet.json` |
+| `write-samples` | iPad in the same Wi-Fi: `penclone capture NAME`, give the user the link, wait until it reports the import. Otherwise `penclone sample-sheet --out sheet.pdf`, explain how to write it in a notes app ([references/writing-samples.md](references/writing-samples.md)), wait for the exported PDF, `penclone import NAME written.pdf --manifest sheet.json`. Written paper scans do not work yet. |
 | `build` / `build-chars` | `penclone profile build NAME` (with `--only chars` for build-chars) |
 | `ready` | write text (step 3) |
 

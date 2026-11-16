@@ -24,6 +24,7 @@ Write:
 Handwriting:
   penclone sample-sheet [--chars C] --out F.pdf   sheet to write by hand (all sentences, or only some characters)
   penclone import NAME WRITTEN.pdf --manifest F.json   add a written sheet to a profile and build it
+  penclone capture NAME [--chars C]         write the sample sheet in Safari on the iPad (time, pressure, tilt recorded)
   penclone profile create|list|show|build|export|import|override|block ...   manage profiles
   penclone report NAME [--sheet out.png]    quality report of the glyphs
   penclone validate NAME                    anonymous numbers to help check the general rules (nothing is sent)
@@ -171,6 +172,17 @@ const commands = {
     const { values: a, positionals } = args(argv, { manifest: { type: 'string' }, 'no-build': { type: 'boolean' } });
     if (positionals.length < 2 || !a.manifest) return console.log('usage: penclone import NAME WRITTEN.pdf --manifest SHEET.json');
     console.log(C.importSamples({ profile: positionals[0], pdf: positionals[1], manifest: a.manifest, build: !a['no-build'] }));
+  },
+  async capture(argv) {
+    const { values: a, positionals } = args(argv, { chars: { type: 'string' }, port: { type: 'string' }, host: { type: 'string' } });
+    if (!positionals[0]) return console.log('usage: penclone capture NAME [--chars C] [--port 8765] [--host 0.0.0.0]');
+    const { startCapture } = await import('../lib/capture.js');
+    const c = await startCapture({ profile: positionals[0], chars: a.chars, port: a.port ? Number(a.port) : undefined, host: a.host });
+    console.log('Open this on the iPad (same Wi-Fi), in Safari, and write with the Apple Pencil:');
+    for (const u of c.urls) console.log('  ' + u);
+    console.log('The page is reachable in your local network while this runs; the link contains a secret. Ctrl+C stops it.');
+    const r = await c.done;
+    console.log(r.ok ? `imported ${r.strokes} strokes\n${r.output}` : `stopped: ${r.error}`);
   },
   async validate(argv) {
     const r = C.validate({ profile: argv[0] });

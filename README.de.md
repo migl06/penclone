@@ -16,7 +16,7 @@ Gedacht für: Lernzettel, Briefe und Karten, Antworten auf Arbeitsblättern, Moc
 > **Stand: früh, aber benutzbar.** Funktioniert: Handschrift-Profile, Probeblätter (ganz oder nur fehlende Zeichen), Layout mit
 > deutscher Silbentrennung und einem aus deinen Proben gemessenen Zeilenmodell, Papier (liniert, kariert, punktiert, deutsche
 > Lineaturen, dein eigenes eingescanntes Papier), Stifte und iPad-Look, Arbeitsblätter, PDF / SVG / PNG und bearbeitbare Tinte
-> (Xournal++, InkML, Excalidraw), MCP-Server, Skill. Noch nicht: iPad-Aufnahmeseite, Lesbarkeit messen (OCR), npm-Veröffentlichung.
+> (Xournal++, InkML, Excalidraw), MCP-Server, Skill. Noch nicht: Lesbarkeit messen (OCR), npm-Veröffentlichung.
 > Details: [docs/de/bekannte-probleme.md](docs/de/bekannte-probleme.md), [docs/de/entscheidungen.md](docs/de/entscheidungen.md).
 
 ## Auf Forschung gebaut, nicht geraten
@@ -74,7 +74,8 @@ Deine Schrift wird unter einem Namen gespeichert und wiederverwendet. Profile li
 
 ```bash
 penclone profile create ich
-penclone sample-sheet --out sheet.pdf                   # ausdrucken oder in einer Notiz-App auf dem iPad schreiben (~30 Min.)
+penclone sample-sheet --out sheet.pdf                   # in einer Notiz-App auf dem iPad schreiben, als PDF exportieren (~30 Min.)
+penclone capture ich                                    # oder: direkt in Safari auf dem iPad schreiben (mit Zeit und Druck)
 penclone import ich geschrieben.pdf --manifest sheet.json   # Striche → Glyphen, misst Wortabstände und Zeilen-Drift
 penclone sample-sheet --chars "§@" --out fehlend.pdf    # später: nur fehlende Zeichen
 penclone report ich --sheet glyphen.png                 # Qualitätsbericht

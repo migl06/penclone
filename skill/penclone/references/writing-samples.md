@@ -2,9 +2,12 @@
 
 Explain this before the user starts:
 
-- **Print it** and write with the pen they want to imitate, then scan it - or **open the PDF in a notes app on the iPad**
-  (GoodNotes, Notability, …), write with the Apple Pencil and export the pages as PDF. The iPad export keeps the strokes as
-  vectors, which gives the cleanest result.
+- **Directly on the iPad:** `penclone capture NAME` prints a link to open in Safari on the iPad (same Wi-Fi); the user writes with
+  the Apple Pencil and taps “Fertig”; the strokes are imported automatically (no manifest needed).
+- Or **open the PDF in a notes app on the iPad** (GoodNotes, Notability, …), write with the Apple Pencil and export the pages
+  as PDF. The export keeps the strokes as vectors.
+- **Not supported yet:** writing on paper and scanning it. penclone needs the pen strokes as vectors; a scan is only an image.
+  Tell the user this before they start.
 - Write every sentence **on the ruled line below it**, normally and at normal speed - not extra neat. Unfamiliar, slow or
   careful writing changes the handwriting.
 - One sentence per line; smaller is fine. Do not write over the grey text. If you slip, cross out and rewrite the whole

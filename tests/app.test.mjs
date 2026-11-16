@@ -144,3 +144,35 @@ test('MCP server: handshake, tools, a call, errors', async () => {
   assert.equal(res[5].error.code, -32601);
   assert.equal(Object.keys(res).length, 5);           // no answer to the notification
 });
+
+test('iPad capture page: secret link, rejects bad uploads, imports a written character sheet', { skip: !hasPython && 'needs Python with numpy' }, async () => {
+  const { startCapture } = await import('../lib/capture.js');
+  const c = await startCapture({ profile: 'demo', chars: '§', port: 0, host: '127.0.0.1' });
+  try {
+    assert.match(c.url, /^http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{32}\/$/);
+    assert.match(await (await fetch(c.url)).text(), /Apple Pencil/);
+    assert.equal((await fetch(c.url.replace(/[0-9a-f]{32}/, '0'.repeat(32)))).status, 404);
+    const man = await (await fetch(c.url + 'sheet.json')).json();
+    assert.deepEqual(man.lines.map((l) => l.text), ['n§n n§n n§n']);
+    assert.equal((await fetch(c.url + 'upload', { method: 'POST', body: '{"format":"other"}' })).status, 400);
+    // synthetic writer: "n" = two strokes of x-height, "§" = a taller zigzag, points [x, y, t, pressure, tiltX, tiltY] in pt
+    const ln = man.lines[0], xh = 7, strokes = [];
+    let x = ln.x0 + 6, t = 0;
+    const pt = (px, py) => [px, py, (t += 8), 0.5, 0, 0];
+    const n = () => { strokes.push([pt(x, ln.baseline), pt(x, ln.baseline - xh)], [pt(x, ln.baseline - xh), pt(x + 4, ln.baseline - xh), pt(x + 4, ln.baseline)]); x += 7; };
+    for (let g = 0; g < 3; g++) {
+      n();
+      strokes.push([0, 1, 2, 3, 4, 5].map((i) => pt(x + (i % 2) * 4, ln.baseline - 1.5 * xh + i * 0.3 * xh)));
+      x += 7;
+      n();
+      x += 18;
+    }
+    const r = await (await fetch(c.url + 'upload', { method: 'POST', body: JSON.stringify({ format: 'penclone-capture', version: 1, pages: { 1: strokes } }) })).json();
+    assert.equal(r.ok, true, r.error);
+    assert.ok((await c.done).ok);
+    const chars = JSON.parse(readFileSync(join(HOME, 'profiles', 'demo', 'glyphs-chars.json'), 'utf8'));
+    assert.equal(chars['§'].length, 3);
+  } finally {
+    c.stop();
+  }
+});

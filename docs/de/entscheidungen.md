@@ -64,7 +64,7 @@ darüber; nichts geht nur in einer Oberfläche und in der anderen nicht.
 | Text in Felder eines Scans/PDFs schreiben, eingepasst | `penclone fill blatt.pdf --fields felder.json` | `fill_page` (Vorschau + Bericht pro Feld) | **fertig** |
 | Anonyme Statistik für die Regel-Prüfung | `penclone validate NAME` | `anonymous_statistics` | **fertig** |
 | Optionale persönliche Ausnahme (normalerweise unnötig) | `penclone profile override …`, `profile block …` | – (bewusst nur CLI: soll selten sein) | fertig |
-| Proben am iPad aufnehmen (Zeit, Druck, Neigung) | `penclone capture` | `start_capture` | geplant |
+| Proben am iPad aufnehmen (Zeit, Druck, Neigung) | `penclone capture NAME [--chars C]` | `start_capture` | **fertig** (aufgezeichnet; Zeit/Druck nutzt die Engine noch nicht) |
 | Felder auf einem Scan vorschlagen (optionale Hilfe) | `penclone detect-fields` | `detect_fields` | geplant |
 | Auf Seitenzahl einpassen | `penclone render --pages N` | Option | geplant |
 | Lesbarkeit prüfen (OCR) | `penclone check` | `check_legibility` | geplant (P4) |
@@ -364,6 +364,8 @@ erzwungen.
 | Stifte | Vorgaben für Farbe, Breite, Deckkraft; Bleistift-Körnung nur im SVG; **iPad-Look** = gefüllte Umrisse, dünner wo die Hand schnell war (Zwei-Drittel-Gesetz), spitz zulaufende Enden | perfect-freehand (Ansatz), Lacquaniti et al. 1983; Werte sind Annahmen |
 | Bearbeitbare Tinte | Xournal++ (`.xopp`, gzip-XML), InkML, Excalidraw (`freedraw`) | §8; nach den Formaten geschrieben, noch nicht in jeder App geöffnet |
 | Voreinstellungen | im Profil gespeichert, gelten ohne Option; ein gespeicherter Stift, den es für die gewählte Ausgabe nicht gibt, wird ignoriert | §11 |
+
+iPad-Aufnahmeseite (`lib/capture.js`, P1): kleiner Webserver im Heimnetz mit 128-Bit-Geheimlink, eine Zeichenfläche pro Blattseite, der Pencil schreibt und der Finger scrollt, Striche in pt vom Seitenanfang (die Pipeline liest sie wie einen PDF-Export) plus Zeit, Druck und Neigung; er beendet sich nach dem Import.
 
 Nicht in P3: detect-fields, `--pages N`, Textmarker, Kuli-Tintenmodell (Franke & Rose), Bleistift-Körnung im PDF.
 

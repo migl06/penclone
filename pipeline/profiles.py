@@ -147,10 +147,11 @@ def add_sample_v2(name, pdf, manifest):
         sys.exit(f'unknown sheet type {kind!r} in {manifest}')
     src = source_dir(P, sid)
     os.makedirs(src)
-    shutil.copy(pdf, os.path.join(src, 'written.pdf'))
+    written = 'written.json' if pdf.lower().endswith('.json') else 'written.pdf'    # .json = iPad capture page
+    shutil.copy(pdf, os.path.join(src, written))
     shutil.copy(manifest, os.path.join(src, 'sheet.json'))
     pages = max(l['page'] for l in man['lines'])
-    entry = {'id': sid, 'sheet': kind, 'file': 'written.pdf', 'pages': pages, 'sentences': len(man['lines']),
+    entry = {'id': sid, 'sheet': kind, 'file': written, 'pages': pages, 'sentences': len(man['lines']),
              'added': datetime.date.today().isoformat()}
     if kind == CHARS:
         entry['chars'] = man.get('chars', '')
@@ -173,7 +174,7 @@ def build_chars(P):
         with tempfile.TemporaryDirectory() as d:
             g, r = os.path.join(d, 'g.json'), os.path.join(d, 'r.json')
             rc = subprocess.run([sys.executable, os.path.join(here, 'build_glyphs_v2.py'), '--pdf',
-                                 os.path.join(src, 'written.pdf'), '--manifest', os.path.join(src, 'sheet.json'),
+                                 written_file(P, s['id']), '--manifest', os.path.join(src, 'sheet.json'),
                                  '--out', g, '--report', r], stdout=subprocess.DEVNULL).returncode
             if rc:
                 print(f'{s["id"]}: could not read the sheet')
@@ -191,12 +192,17 @@ def build_chars(P):
     return 0
 
 
+def written_file(P, source_id):
+    s = next(x for x in P['sources'] if x['id'] == source_id)
+    return os.path.join(source_dir(P, source_id), s.get('file', 'written.pdf'))
+
+
 def build_v2(P, limit=0.9):
     """Build glyphs-v2.json from the sample-v2 source of a profile; the sheet-v1 glyphs (if built) serve as templates."""
     src = source_dir(P, V2)
     here = os.path.dirname(os.path.abspath(__file__))
     out = os.path.join(P['_dir'], 'glyphs-v2.json')
-    cmd = [sys.executable, os.path.join(here, 'build_glyphs_v2.py'), '--pdf', os.path.join(src, 'written.pdf'),
+    cmd = [sys.executable, os.path.join(here, 'build_glyphs_v2.py'), '--pdf', written_file(P, V2),
            '--manifest', os.path.join(src, 'sheet.json'), '--out', out,
            '--report', os.path.join(P['_dir'], 'report-v2.json'), '--limit', str(limit)]
     if os.path.isfile(glyphs_path(P)):
@@ -208,7 +214,7 @@ def build_v2(P, limit=0.9):
         return rc
     # line-level habits (word gaps, baseline drift) for the renderer, measured at the same x-height as the glyphs
     rep = json.load(open(os.path.join(P['_dir'], 'report-v2.json'), encoding='utf-8'))
-    cmd = [sys.executable, os.path.join(here, 'measure_layout.py'), '--pdf', os.path.join(src, 'written.pdf'),
+    cmd = [sys.executable, os.path.join(here, 'measure_layout.py'), '--pdf', written_file(P, V2),
            '--manifest', os.path.join(src, 'sheet.json'), '--xheight-pt', str(rep['xheight_pt']),
            '--out', os.path.join(P['_dir'], 'layout.json')]
     return subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode

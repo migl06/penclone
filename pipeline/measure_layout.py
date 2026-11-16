@@ -141,7 +141,7 @@ def measure(pages_strokes, manifest, xh_pt):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('--pdf', required=True, help='written sample sheet v2 (PDF export with pen strokes)')
+    ap.add_argument('--pdf', required=True, help='written sample sheet v2: PDF export with pen strokes, or a capture file (.json)')
     ap.add_argument('--manifest', required=True, help='sheet.json written by make_sheet.py')
     ap.add_argument('--xheight-pt', type=float, help='x-height in pt (default: measured like build_glyphs_v2.py)')
     ap.add_argument('--out', help='write the result as JSON (default: print)')

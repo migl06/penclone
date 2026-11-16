@@ -66,7 +66,7 @@ the same commands, so nothing is ever possible in one interface but not in the o
 | Write text into fields of a scan/PDF, fitted | `penclone fill sheet.pdf --fields fields.json` | `fill_page` (preview + report per field) | **done** |
 | Anonymous statistics for checking the rules | `penclone validate NAME` | `anonymous_statistics` | **done** |
 | Optional personal override (normally not needed) | `penclone profile override …`, `profile block …` | – (CLI only on purpose: should be rare) | done |
-| Capture samples on the iPad (time, pressure, tilt) | `penclone capture` | `start_capture` | planned |
+| Capture samples on the iPad (time, pressure, tilt) | `penclone capture NAME [--chars C]` | `start_capture` | **done** (recorded; time/pressure not used by the engine yet) |
 | Suggest fields on a scan (optional helper) | `penclone detect-fields` | `detect_fields` | planned |
 | Fit to a page count | `penclone render --pages N` | option | planned |
 | Check legibility (OCR) | `penclone check` | `check_legibility` | planned (P4) |
@@ -362,6 +362,8 @@ layers over it, the skill (`skill/penclone/`) drives the command line.** That is
 | Pens | presets of colour, width and opacity; pencil grain only in SVG; **iPad look** = filled outlines, thinner where the hand was fast (two-thirds power law), tapered ends | perfect-freehand (approach), Lacquaniti et al. 1983; values are assumptions |
 | Editable ink | Xournal++ (`.xopp`, gzip XML), InkML, Excalidraw (`freedraw`) | §8; written from the formats as documented/found, not yet opened in every app |
 | Preferences | stored in the profile, used when no option is given; a saved pen that does not exist for the chosen output is ignored | §11 |
+
+iPad capture page (`lib/capture.js`, P1): a small web server in the local network with a 128-bit secret link, one canvas per sheet page, Pencil writes and the finger scrolls, strokes stored in pt from the page top (the pipeline reads them like a PDF export) plus time, pressure and tilt; it stops after the import.
 
 Not done in P3: detect-fields, `--pages N`, highlighter, ballpoint ink model (Franke & Rose), pencil grain in PDF.
 

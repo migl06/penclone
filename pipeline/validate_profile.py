@@ -13,7 +13,7 @@ import json
 import os
 import sys
 
-from profiles import load, source_dir, V2
+from profiles import load, source_dir, written_file, V2
 from validate_stats import writer_stats
 from segment_v2 import assign_lines, split_words
 
@@ -53,7 +53,7 @@ def main():
     from build_glyphs_v2 import pages_from_pdf
     src = source_dir(P, V2)
     man = json.load(open(os.path.join(src, 'sheet.json'), encoding='utf-8'))
-    pages = pages_from_pdf(os.path.join(src, 'written.pdf'), max(l['page'] for l in man['lines']))
+    pages = pages_from_pdf(written_file(P, V2), max(l['page'] for l in man['lines']))
     # the sheet has fixed sentences with about 15 words of x-height letters only, so 8 are enough here (IAM tool: 15)
     stats = writer_stats(words_of(pages, man), min_words=60, min_x=8) or {}
     r = lambda v: None if v is None else round(v, 3)

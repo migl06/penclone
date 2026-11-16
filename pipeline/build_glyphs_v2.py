@@ -158,8 +158,20 @@ def build(occ):
     return out, report
 
 
+def pages_from_capture(fn):
+    """Strokes per page from the iPad capture page (penclone capture): points [x, y, t, pressure, tiltX, tiltY] in pt,
+    y down from the page top - the same coordinates as a PDF export, so the rest of the pipeline is unchanged."""
+    data = json.load(open(fn, encoding='utf-8'))
+    if data.get('format') != 'penclone-capture':
+        raise ValueError(f'{fn} is not a penclone capture file')
+    return {int(p): [np.array([[q[0], q[1]] for q in s], float) for s in strokes if len(s) >= 1]
+            for p, strokes in data['pages'].items()}
+
+
 def pages_from_pdf(pdf, n_pages):
-    """Strokes per page (1-based) from a written sample PDF via pdftocairo."""
+    """Strokes per page (1-based) from a written sample PDF via pdftocairo, or from a capture file (.json)."""
+    if pdf.lower().endswith('.json'):
+        return pages_from_capture(pdf)
     res = {}
     with tempfile.TemporaryDirectory() as d:
         for p in range(1, n_pages + 1):
@@ -171,7 +183,7 @@ def pages_from_pdf(pdf, n_pages):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('--pdf', required=True, help='written sample sheet (PDF export with pen strokes)')
+    ap.add_argument('--pdf', required=True, help='written sample sheet: PDF export with pen strokes, or a capture file (.json)')
     ap.add_argument('--manifest', required=True, help='sheet.json written by make_sheet.py')
     ap.add_argument('--templates', help='glyph JSON used as templates to align joined letters (e.g. a sheet-v1 glyphs.json)')
     ap.add_argument('--limit', type=float, default=0.9, help='largest accepted shape cost of one character with --templates (stricter = cleaner, fewer words)')
