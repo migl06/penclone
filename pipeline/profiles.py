@@ -8,6 +8,7 @@ outside the repository so it survives updates and re-downloads:
         samples/<source>/   the sample PDF and its extracted pages (pg1.svg ...)
         glyphs.json         glyph library built from the samples + rules
         glyphs-v2.json      glyph library from sample sheet v2 (+ report-v2.json)
+        glyphs-chars.json   characters added later with character sheets (make_sheet.py --chars)
         layout.json         measured line habits from sample sheet v2: word gaps, baseline drift (measure_layout.py)
 
 How penclone improves:
@@ -19,8 +20,8 @@ How penclone improves:
                        empty; every change is logged with a reason
 
 Usage:
-    python3 profiles.py create NAME --pdf samples.pdf [--sheet alphabet-v1] [--lang de]
-    python3 profiles.py add-sample NAME --pdf written.pdf --manifest sheet.json   # written sample sheet v2 (sentences)
+    python3 profiles.py create NAME [--pdf samples.pdf --sheet alphabet-v1] [--lang de]   # without --pdf: empty profile
+    python3 profiles.py add-sample NAME --pdf written.pdf --manifest sheet.json   # written sample sheet v2 or character sheet
     python3 profiles.py list
     python3 profiles.py show NAME
     # optional overrides (normally not needed):
@@ -28,7 +29,7 @@ Usage:
     python3 profiles.py override NAME align-cap N --why "..."
     python3 profiles.py block NAME k alphabet-v1:p3 --why "..."
     python3 profiles.py unblock NAME k alphabet-v1:p3
-    python3 profiles.py build NAME                 # rebuild glyphs.json
+    python3 profiles.py build NAME [--only v1|v2|chars]   # rebuild the glyph libraries
     python3 profiles.py export NAME out.zip        # backup / move to another computer
     python3 profiles.py import in.zip
 """
@@ -44,6 +45,7 @@ import zipfile
 VERSION = 1
 SHEETS = {'alphabet-v1': 3}          # sample sheet type -> number of pages (sample-v2 has as many pages as its manifest)
 V2 = 'sample-v2'                     # sample sheet v2: sentences, needs the manifest written by make_sheet.py
+CHARS = 'chars'                      # character sheet (make_sheet.py --chars): missing characters added later
 OVERRIDE_KEYS = {
     'clean_dots': list,         # small marks of these chars become synthetic dots (default: marks stay as written)
     'blocked': dict,            # char -> ["<source>:p<page>", ...] variants not to use
@@ -99,10 +101,18 @@ def log(P, change, why=None):
     P.setdefault('log', []).append({'date': datetime.date.today().isoformat(), 'change': change, 'why': why or ''})
 
 
-def create(name, pdf, sheet='alphabet-v1', langs=('de',)):
+def create(name, pdf=None, sheet='alphabet-v1', langs=('de',)):
+    """Create a profile; without pdf it starts empty (add sample sheet v2 later with add-sample)."""
     d = path(name)
     if os.path.exists(d):
         sys.exit(f'profile already exists: {d}')
+    if pdf is None:
+        os.makedirs(d)
+        P = {'name': name, 'version': VERSION, 'created': datetime.date.today().isoformat(), 'languages': list(langs),
+             'sources': [], 'overrides': empty_overrides(), 'preferences': {}, '_dir': d}
+        log(P, 'create (empty; samples follow)')
+        save(P)
+        return P
     if sheet not in SHEETS:
         sys.exit(f'unknown sample sheet {sheet!r}; known: {", ".join(SHEETS)}')
     src = os.path.join(d, 'samples', sheet)
@@ -120,21 +130,65 @@ def create(name, pdf, sheet='alphabet-v1', langs=('de',)):
 
 
 def add_sample_v2(name, pdf, manifest):
-    """Add a written sample sheet v2 (PDF with pen strokes + its manifest) to an existing profile."""
+    """Add a written sample sheet v2 or a character sheet (PDF with pen strokes + its manifest) to an existing profile."""
     P = load(name)
-    if any(s['id'] == V2 for s in P['sources']):
-        sys.exit(f'profile {name} already has a {V2} source; remove it first or use another profile')
     man = json.load(open(manifest, encoding='utf-8'))
-    src = source_dir(P, V2)
+    kind = man.get('sheet', V2)
+    if kind == CHARS:
+        n = 1 + sum(1 for s in P['sources'] if s.get('sheet') == CHARS)
+        sid = f'{CHARS}-{n}'
+        while os.path.exists(source_dir(P, sid)):
+            n += 1; sid = f'{CHARS}-{n}'
+    elif kind == V2:
+        sid = V2
+        if any(s['id'] == V2 for s in P['sources']):
+            sys.exit(f'profile {name} already has a {V2} source; remove it first or use another profile')
+    else:
+        sys.exit(f'unknown sheet type {kind!r} in {manifest}')
+    src = source_dir(P, sid)
     os.makedirs(src)
     shutil.copy(pdf, os.path.join(src, 'written.pdf'))
     shutil.copy(manifest, os.path.join(src, 'sheet.json'))
     pages = max(l['page'] for l in man['lines'])
-    P['sources'].append({'id': V2, 'sheet': V2, 'file': 'written.pdf', 'pages': pages, 'sentences': len(man['lines']),
-                         'added': datetime.date.today().isoformat()})
-    log(P, f'add {V2} ({len(man["lines"])} sentences, {pages} pages) from {os.path.basename(pdf)}')
+    entry = {'id': sid, 'sheet': kind, 'file': 'written.pdf', 'pages': pages, 'sentences': len(man['lines']),
+             'added': datetime.date.today().isoformat()}
+    if kind == CHARS:
+        entry['chars'] = man.get('chars', '')
+    P['sources'].append(entry)
+    what = f'characters {entry["chars"]}' if kind == CHARS else f'{len(man["lines"])} sentences, {pages} pages'
+    log(P, f'add {sid} ({what}) from {os.path.basename(pdf)}')
     save(P)
-    return P
+    return P, sid
+
+
+def build_chars(P):
+    """Build glyphs-chars.json from all character sheets: only the target characters are kept (the n give the size)."""
+    import tempfile
+    here = os.path.dirname(os.path.abspath(__file__))
+    out, report = {}, {}
+    for s in P['sources']:
+        if s.get('sheet') != CHARS:
+            continue
+        src = source_dir(P, s['id'])
+        with tempfile.TemporaryDirectory() as d:
+            g, r = os.path.join(d, 'g.json'), os.path.join(d, 'r.json')
+            rc = subprocess.run([sys.executable, os.path.join(here, 'build_glyphs_v2.py'), '--pdf',
+                                 os.path.join(src, 'written.pdf'), '--manifest', os.path.join(src, 'sheet.json'),
+                                 '--out', g, '--report', r], stdout=subprocess.DEVNULL).returncode
+            if rc:
+                print(f'{s["id"]}: could not read the sheet')
+                return rc
+            glyphs = json.load(open(g, encoding='utf-8'))
+        for c in s.get('chars', ''):
+            got = glyphs.get(c, [])
+            report[c] = report.get(c, 0) + len(got)
+            if got:
+                out.setdefault(c, []).extend(got)
+    json.dump(out, open(os.path.join(P['_dir'], 'glyphs-chars.json'), 'w', encoding='utf-8'), ensure_ascii=False,
+              separators=(',', ':'))
+    for c, n in report.items():
+        print(f'  {c!r}: {n} variant(s)' + ('' if n else ' - not found; write it again with clear gaps to the n'))
+    return 0
 
 
 def build_v2(P, limit=0.9):
@@ -173,9 +227,9 @@ def set_chars(P, key, chars, add=True):
 def main():
     ap = argparse.ArgumentParser(description='Manage handwriting profiles.')
     sub = ap.add_subparsers(dest='cmd', required=True)
-    c = sub.add_parser('create'); c.add_argument('name'); c.add_argument('--pdf', required=True)
+    c = sub.add_parser('create'); c.add_argument('name'); c.add_argument('--pdf', help='alphabet sample sheet v1 (optional)')
     c.add_argument('--sheet', default='alphabet-v1'); c.add_argument('--lang', default='de')
-    sv = sub.add_parser('add-sample', help='add a written sample sheet v2'); sv.add_argument('name')
+    sv = sub.add_parser('add-sample', help='add a written sample sheet v2 or character sheet'); sv.add_argument('name')
     sv.add_argument('--pdf', required=True); sv.add_argument('--manifest', required=True)
     sub.add_parser('list')
     s = sub.add_parser('show'); s.add_argument('name')
@@ -186,6 +240,7 @@ def main():
         b = sub.add_parser(cmd, help='optional personal exception: do not use a variant'); b.add_argument('name'); b.add_argument('char'); b.add_argument('variant')
         b.add_argument('--why')
     bd = sub.add_parser('build'); bd.add_argument('name'); bd.add_argument('--no-fixes', action='store_true')
+    bd.add_argument('--only', choices=['v1', 'v2', 'chars'], help='rebuild only one glyph library')
     e = sub.add_parser('export'); e.add_argument('name'); e.add_argument('zip')
     i = sub.add_parser('import'); i.add_argument('zip'); i.add_argument('--name')
     a = ap.parse_args()
@@ -194,8 +249,9 @@ def main():
         P = create(a.name, a.pdf, a.sheet, a.lang.split(','))
         print('created', P['_dir'])
     elif a.cmd == 'add-sample':
-        P = add_sample_v2(a.name, a.pdf, a.manifest)
-        print('added', V2, 'to', P['_dir'], '- now run: build', a.name)
+        P, sid = add_sample_v2(a.name, a.pdf, a.manifest)
+        only = ' --only chars' if sid.startswith(CHARS) else ''
+        print('added', sid, 'to', P['_dir'], f'- now run: build {a.name}{only}')
     elif a.cmd == 'list':
         h = home()
         for n in sorted(os.listdir(h)) if os.path.isdir(h) else []:
@@ -231,13 +287,16 @@ def main():
         P = load(a.name)
         here = os.path.dirname(os.path.abspath(__file__))
         rc = 0
-        if any(x['id'] == 'alphabet-v1' for x in P['sources']):
+        want = lambda k: a.only in (None, k)
+        if want('v1') and any(x['id'] == 'alphabet-v1' for x in P['sources']):
             cmd = [sys.executable, os.path.join(here, 'build_glyphs.py'), '--profile', a.name]
             if a.no_fixes:
                 cmd.append('--no-fixes')
             rc = subprocess.run(cmd).returncode
-        if rc == 0 and any(x['id'] == V2 for x in P['sources']):
+        if rc == 0 and want('v2') and any(x['id'] == V2 for x in P['sources']):
             rc = build_v2(P)
+        if rc == 0 and want('chars') and any(x.get('sheet') == CHARS for x in P['sources']):
+            rc = build_chars(P)
         sys.exit(rc)
     elif a.cmd == 'export':
         P = load(a.name)

@@ -1,14 +1,14 @@
 // @ts-check
-/* Node-only helpers: find profiles, read glyph libraries and measured layout, write SVG / PDF files.
+/* Node-only helpers: find profiles, read glyph libraries, measured layout and paper templates, write every output format.
  * Profiles live outside the repository (docs/decisions.md §6): $PENCLONE_HOME/profiles/<name>/, default
  * ~/.local/share/penclone (same rule as pipeline/profiles.py). */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve as resolvePath } from 'node:path';
-import { deflateSync } from 'node:zlib';
+import { deflateSync, gzipSync } from 'node:zlib';
 import { loadLibrary } from './glyphs.js';
 import { measured } from './layout.js';
-import { toPDF, toSVG } from './output.js';
+import { toExcalidraw, toInkML, toPDF, toSVG, toXournal } from './output.js';
 
 export function profilesHome() {
   const base = process.env.PENCLONE_HOME
@@ -21,48 +21,115 @@ export function profileDir(nameOrDir) {
   return join(profilesHome(), nameOrDir);
 }
 
-const readJson = (fn) => JSON.parse(readFileSync(fn, 'utf8'));
+export const readJson = (fn) => JSON.parse(readFileSync(fn, 'utf8'));
+
+/** profile.json of a profile (throws a helpful error if it does not exist). */
+export function readProfile(name) {
+  const dir = profileDir(name);
+  if (!existsSync(join(dir, 'profile.json'))) {
+    throw new Error(`profile not found: ${name} (create it with: penclone profile create ${name})`);
+  }
+  return { dir, P: readJson(join(dir, 'profile.json')) };
+}
+
+/** Write profile.json, adding a log entry (same format as pipeline/profiles.py). */
+export function writeProfile(dir, P, change, why = '') {
+  if (change) (P.log ??= []).push({ date: new Date().toISOString().slice(0, 10), change, why });
+  writeFileSync(join(dir, 'profile.json'), JSON.stringify(P, null, 2));
+}
+
+export function listProfileNames() {
+  const h = profilesHome();
+  if (!existsSync(h)) return [];
+  return readdirSync(h).filter((n) => !n.startsWith('.') && existsSync(join(h, n, 'profile.json'))).sort();
+}
+
+const GLYPH_SETS = { v1: ['glyphs.json'], v2: ['glyphs-v2.json'], both: ['glyphs.json', 'glyphs-v2.json'] };
 
 /**
  * Load a profile's glyph library and measured layout habits.
  * @param {string} name profile name or directory
- * @param {{glyphSet?: 'v1'|'v2'|'both'}} [o] which glyph library: sheet v1 (default), sheet v2, or both merged
+ * @param {{glyphSet?: 'auto'|'v1'|'v2'|'both'}} [o] glyph library: auto = sheet v1 if built, else sheet v2.
+ *        Characters added with character sheets (glyphs-chars.json) are always included.
  */
 export function loadProfile(name, o = {}) {
-  const dir = profileDir(name);
-  if (!existsSync(join(dir, 'profile.json'))) {
-    throw new Error(`profile not found: ${dir} (create it with: penclone profile create NAME --pdf FILE)`);
-  }
-  const set = o.glyphSet ?? 'v1';
-  const files = { v1: ['glyphs.json'], v2: ['glyphs-v2.json'], both: ['glyphs.json', 'glyphs-v2.json'] }[set];
-  if (!files) throw new Error(`unknown glyph set ${set}; use v1, v2 or both`);
+  const { dir, P } = readProfile(name);
+  let set = o.glyphSet ?? 'auto';
+  if (set === 'auto') set = existsSync(join(dir, 'glyphs.json')) ? 'v1' : 'v2';
+  const files = GLYPH_SETS[set];
+  if (!files) throw new Error(`unknown glyph set ${set}; use auto, v1, v2 or both`);
   const found = files.filter((f) => existsSync(join(dir, f)));
-  if (!found.length) throw new Error(`profile ${name} has no ${files.join(' / ')} yet (run: penclone profile build ${name})`);
+  if (!found.length) throw new Error(`profile ${name} has no glyphs yet (run: penclone profile build ${name})`);
+  if (existsSync(join(dir, 'glyphs-chars.json'))) found.push('glyphs-chars.json');
   const lib = loadLibrary(...found.map((f) => readJson(join(dir, f))));
   const layoutFile = join(dir, 'layout.json');
   const layoutJson = existsSync(layoutFile) ? readJson(layoutFile) : null;
-  return { dir, lib, glyphFiles: found, layoutJson, layout: measured(layoutJson) };
+  return { dir, P, lib, glyphFiles: found, layoutJson, layout: measured(layoutJson), preferences: P.preferences ?? {} };
 }
 
 export function loadGlyphFile(fn, layoutFn) {
   const layoutJson = layoutFn ? readJson(layoutFn) : null;
-  return { dir: null, lib: loadLibrary(readJson(fn)), glyphFiles: [fn], layoutJson, layout: measured(layoutJson) };
+  return { dir: null, P: null, lib: loadLibrary(readJson(fn)), glyphFiles: [fn], layoutJson, layout: measured(layoutJson), preferences: {} };
 }
 
 /**
- * Write a rendered document. .pdf -> one PDF; .svg -> one file per page (name.svg, or name-1.svg, name-2.svg, ...).
- * @returns {string[]} written files
+ * Turn a template folder (template.json [+ background.png], written by pipeline/scan_paper.py or `penclone template add`)
+ * into an engine Paper.
+ * @returns {import('./paper.js').Paper}
  */
-export function writeDocument(doc, file, o = {}) {
-  if (/\.pdf$/i.test(file)) {
-    writeFileSync(file, toPDF(doc, { ...o, deflate: (b) => deflateSync(b, { level: 9 }) }));
-    return [file];
+export function paperFromTemplate(dir) {
+  const t = readJson(join(dir, 'template.json'));
+  if (t.kind === 'built' || !t.rules) {
+    // parametric template: {type, spacing|grid, margins}
+    return { type: t.type, spacing: t.spacing, grid: t.grid, margins: t.margins, note: t.note ?? 'own template' };
   }
-  if (/\.svg$/i.test(file)) {
-    const pages = toSVG(doc, o);
-    const names = pages.length === 1 ? [file] : pages.map((_, i) => file.replace(/\.svg$/i, `-${i + 1}.svg`));
-    pages.forEach((s, i) => writeFileSync(names[i], s));
-    return names;
+  /** @type {import('./paper.js').Paper} */
+  const paper = { type: 'scan', rules: t.rules, verticals: t.verticals ?? [], page: t.page, source: t.source, note: `scan (${t.type})` };
+  // squared and dotted scans: the rules are every grid line; layout.js picks every k-th one like on built-in grids
+  if (t.type === 'squared' || t.type === 'dotted') paper.grid = t.grid;
+  if (t.type === 'lined') paper.spacing = t.spacing;
+  if (t.background && existsSync(join(dir, t.background))) {
+    paper.background = { file: t.background, width: t.page[0], height: t.page[1], png: readFileSync(join(dir, t.background)) };
   }
-  throw new Error(`unknown output format: ${file} (use .pdf or .svg)`);
+  return paper;
 }
+
+/** Own templates of a profile: name -> folder. */
+export function profileTemplates(dir) {
+  const t = join(dir, 'templates');
+  if (!existsSync(t)) return {};
+  return Object.fromEntries(readdirSync(t).filter((n) => existsSync(join(t, n, 'template.json'))).map((n) => [n, join(t, n)]));
+}
+
+export const FORMATS = ['pdf', 'svg', 'png', 'xopp', 'inkml', 'excalidraw'];
+
+/**
+ * Write a rendered document. The format comes from `o.format` or the file extension.
+ * .svg and .png give one file per page (name.svg, or name-1.svg, name-2.svg, ...).
+ * @returns {Promise<string[]>} written files
+ */
+export async function writeDocument(doc, file, o = {}) {
+  const ext = (o.format ?? file.split('.').pop() ?? '').toLowerCase();
+  const many = (n, e) => (n === 1 ? [file] : Array.from({ length: n }, (_, i) => file.replace(new RegExp(`\\.${e}$`, 'i'), '') + `-${i + 1}.${e}`));
+  const pdf = () => toPDF(doc, { ...o, deflate: (b) => deflateSync(b, { level: 9 }) });
+  switch (ext) {
+    case 'pdf': writeFileSync(file, pdf()); return [file];
+    case 'svg': {
+      const pages = toSVG(doc, o), names = many(pages.length, 'svg');
+      pages.forEach((s, i) => writeFileSync(names[i], s));
+      return names;
+    }
+    case 'png': {
+      const { pdfToPng } = await import('./preview.js');
+      const names = many(doc.pages.length, 'png');
+      await pdfToPng(pdf(), names, o.dpi ?? 200);
+      return names;
+    }
+    case 'xopp': writeFileSync(file, gzipSync(toXournal(doc, o))); return [file];
+    case 'inkml': writeFileSync(file, toInkML(doc, o)); return [file];
+    case 'excalidraw': writeFileSync(file, toExcalidraw(doc, o)); return [file];
+    default: throw new Error(`unknown output format "${ext}" (use ${FORMATS.join(', ')})`);
+  }
+}
+
+export function ensureDir(d) { mkdirSync(d, { recursive: true }); return d; }

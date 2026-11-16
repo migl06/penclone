@@ -1,0 +1,43 @@
+name: Share anonymous statistics (rule check)
+description: Help check penclone's general rules with your own handwriting - numbers only, no samples
+labels: [rule-validation]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! penclone's general rules (docs/rules.md) still use some thresholds that were measured on one writer only.
+        Run `penclone validate YOUR_PROFILE` and paste its output below. It contains **only numbers** relative to your own
+        x-height (capital and ascender height, how far letters reach below the line, word gaps, line drift) - no strokes,
+        no images, no text. **Do not attach samples, glyph files or profiles.** Issues are public.
+  - type: textarea
+    id: stats
+    attributes:
+      label: Output of penclone validate
+      render: json
+    validations:
+      required: true
+  - type: dropdown
+    id: style
+    attributes:
+      label: How do you usually write?
+      options:
+        - separate letters (print)
+        - mostly joined (cursive)
+        - mixed
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Written with
+      options:
+        - iPad / tablet and pen
+        - paper, then scanned
+        - other
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Consent
+      options:
+        - label: I agree that these numbers are published in this issue and used to check and tune penclone's rules.
+          required: true

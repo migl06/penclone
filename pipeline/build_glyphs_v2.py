@@ -194,7 +194,8 @@ def main():
     if a.report:
         json.dump(rep, open(a.report, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     p = rep['proportions']
-    print(f'{len(glyphs)} characters; capital/x-height {p["capital_over_xheight"]:.2f}, ascender/x-height {p["ascender_over_xheight"]:.2f}')
+    fmt = lambda v: f'{v:.2f}' if v is not None else 'not measured (no such letters on the sheet)'
+    print(f'{len(glyphs)} characters; capital/x-height {fmt(p["capital_over_xheight"])}, ascender/x-height {fmt(p["ascender_over_xheight"])}')
 
 
 if __name__ == '__main__':

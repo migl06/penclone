@@ -48,25 +48,27 @@ penclone mcp        # startet den MCP-Server (stdio)
 Jede Fähigkeit steckt im Kern und bekommt **sofort beim Bauen einen CLI-Befehl**. MCP-Werkzeuge und Skill sind dünne Schichten
 darüber; nichts geht nur in einer Oberfläche und in der anderen nicht.
 
-| Schritt | CLI | MCP-Werkzeug | Skill |
+| Schritt | CLI | MCP-Werkzeug | Stand |
 |---|---|---|---|
-| Stand und nächsten Schritt sehen | `penclone status`, Assistent `penclone init` | `get_status` | ✓ folgt ihm |
-| Eigene Papiervorlage hinzufügen | `penclone template add NAME --from scan.pdf` | `add_template` | ✓ |
-| Handschrift-Profil anlegen / auflisten / anzeigen (**fertig:** `pipeline/profiles.py`) | `penclone profile create NAME --pdf …` | `create_profile`, `list_profiles` | ✓ |
-| Profil sichern oder umziehen (**fertig**) | `penclone profile export NAME datei.zip` / `import` | `export_profile` | ✓ |
-| Probeblatt zum Beschreiben erzeugen (PDF / iPad-Vorlage) | `penclone sample-sheet --lang de` | `create_sample_sheet` | ✓ erklärt, wie man es schreibt |
-| Proben am iPad aufnehmen (Zeit, Druck, Neigung) | `penclone capture` (startet die Aufnahmeseite) | `start_capture` | ✓ |
-| Proben importieren (iPad-PDF oder Aufnahmedaten) | `penclone import samples.pdf` | `import_samples` | ✓ |
-| Glyphen-Bibliothek bauen | `penclone build` | `build_glyphs` | ✓ |
-| Qualitätsbericht, Kontaktbogen | `penclone report --sheet` | `glyph_report` (mit Bild) | ✓ deutet den Bericht, schlägt Korrekturen vor |
-| Optionale persönliche Ausnahme (**fertig**, normalerweise unnötig) | `penclone override NAME …`, `penclone block NAME k alphabet-v1:p3` | `set_override` | ✓ fragt nach dem Grund, protokolliert ihn |
-| Text/Markdown schreiben | `penclone render zettel.md --output paper\|ipad --pen … --paper … --format …` | `render_handwriting` (Pfad + Vorschau) | ✓ |
-| Auf Seitenzahl / Schriftgröße einpassen | `penclone render --pages 10` | Option von `render_handwriting` | ✓ |
-| Papier, Stifte, Farben, Sprachen auflisten | `penclone styles` | `list_styles` | ✓ |
-| Schreibbare Felder auf Scan/PDF vorschlagen (optionale Hilfe) | `penclone detect-fields blatt.pdf` | `detect_fields` (mit nummerierter Vorschau) | ✓ |
-| Text in Felder eines Scans/PDFs schreiben, an den Platz angepasst | `penclone fill blatt.pdf --fields felder.json` | `fill_page` (mit Passt-Bericht) | ✓ |
-| Lesbarkeit prüfen (OCR-Fehlerrate) | `penclone check zettel.pdf` | `check_legibility` | ✓ |
-| Handschrift-Schriftart exportieren (OpenType) | `penclone font` | `export_font` | ✓ |
+| Stand und nächsten Schritt sehen | `penclone status`, Assistent `penclone init` | `get_status` | **fertig** |
+| Profil anlegen / auflisten | `penclone profile create NAME`, `profile list` | `create_profile`, `list_profiles` | **fertig** |
+| Profil sichern oder umziehen | `penclone profile export NAME datei.zip` / `import` | `export_profile`, `import_profile` | **fertig** |
+| Probeblatt erzeugen (alle Sätze oder nur fehlende Zeichen) | `penclone sample-sheet [--chars "§@"]` | `create_sample_sheet` | **fertig** |
+| Geschriebenes Blatt importieren und bauen | `penclone import NAME blatt.pdf --manifest sheet.json` | `import_samples` | **fertig** |
+| Glyphen-Bibliothek neu bauen | `penclone profile build NAME [--only v1\|v2\|chars]` | `build_profile` | **fertig** |
+| Qualitätsbericht, Kontaktbogen | `penclone report NAME --sheet bild.png` | `glyph_report` (mit Bild) | **fertig** |
+| Voreinstellungen (Ausgabe, Stift, Farbe, Papier, Seite, Sprache, Format) | `penclone prefs NAME key=value` | `set_preferences` | **fertig** |
+| Eigene Papiervorlage (Scan oder Parameter) | `penclone template add NAME --from scan.pdf` | `add_template` | **fertig** |
+| Text schreiben | `penclone render datei.txt --output paper\|ipad --pen … --paper … -o x.pdf\|svg\|png\|xopp\|inkml\|excalidraw` | `render_handwriting` (Datei + Vorschau) | **fertig** |
+| Papier, Stifte, Formate auflisten | `penclone styles` | `list_styles` | **fertig** |
+| Text in Felder eines Scans/PDFs schreiben, eingepasst | `penclone fill blatt.pdf --fields felder.json` | `fill_page` (Vorschau + Bericht pro Feld) | **fertig** |
+| Anonyme Statistik für die Regel-Prüfung | `penclone validate NAME` | `anonymous_statistics` | **fertig** |
+| Optionale persönliche Ausnahme (normalerweise unnötig) | `penclone profile override …`, `profile block …` | – (bewusst nur CLI: soll selten sein) | fertig |
+| Proben am iPad aufnehmen (Zeit, Druck, Neigung) | `penclone capture` | `start_capture` | geplant |
+| Felder auf einem Scan vorschlagen (optionale Hilfe) | `penclone detect-fields` | `detect_fields` | geplant |
+| Auf Seitenzahl einpassen | `penclone render --pages N` | Option | geplant |
+| Lesbarkeit prüfen (OCR) | `penclone check` | `check_legibility` | geplant (P4) |
+| Handschrift-Schriftart (OpenType) | `penclone font` | `export_font` | später |
 
 Der Skill liegt in `skill/penclone/` (`SKILL.md` + `references/` für Optionen und die Anleitung zum Probeschreiben). Er enthält nie
 Schriftdaten.
@@ -346,6 +348,25 @@ Zeilenmodell, in x-Höhen des Schreibers (Standardwerte aus `layout.json` im Pro
 Getrennt wird absichtlich selten: nur wenn das Wort in der nächsten Zeile mehr als 6 x-Höhen leer zurückließe oder gar nicht in eine
 Zeile passt. Handschrift hat Flatterrand; die Schwelle ist eine Annahme und wird in P4 geprüft.
 
+## 14. Papier, Stifte, Arbeitsblätter, MCP-Server und Skill (P3)
+
+**Eine Funktion pro Fähigkeit in `lib/commands.js`; Kommandozeile (`bin/penclone.js`) und MCP-Server (`lib/mcp.js`) sind dünne
+Schichten darüber, der Skill (`skill/penclone/`) bedient die Kommandozeile.** So ist die Regel „alles überall“ aus §2 im Code
+erzwungen.
+
+| Teil | Entscheidung | Grundlage |
+|---|---|---|
+| MCP-Server | JSON-RPC 2.0 über stdin/stdout, ohne SDK geschrieben (keine Abhängigkeiten); nur Werkzeuge; Antworten mit JSON-Bericht und PNG-Vorschau; Server-Anweisungen sagen der KI, zuerst `get_status` aufzurufen und bei **fehlenden Zeichen den Nutzer zu fragen** | MCP-Spezifikation (Tools, stdio) |
+| Fehlende Zeichen | nie Schriftart-Ersatz; gemeldet, und die KI fragt: jetzt auf einem **Zeichenblatt** schreiben (`n§n n§n n§n`, die n liefern Größe und Grundlinie, so lassen sich einzelne Zeichen ohne das ganze Blatt nachtragen), weglassen oder ersetzen | eigener Entwurf; n = x-Höhen-Buchstabe, daran misst die Pipeline die x-Höhe |
+| Papier | eingebaute Vorlagen als Vektoren; Grundlinien auf den Linien; bei Karo/Punkten jede k-te Linie, damit der Zeilenabstand mindestens der natürliche ist | §12; k: Annahme |
+| Eigenes Papier aus einem Scan | `pipeline/scan_paper.py`: Geraderichten über Projektionsprofile, Linien/Karos/Punkte/Randlinien aus Zeilen- und Spaltenprofilen, Abstand per Ausgleichsgerade über alle Linien; bereinigter Scan bleibt Hintergrund | synthetische Test-Scans (liniert 7,1 mm, Karo und Punkte 5 mm, um 1,2° gedreht): Abstand auf 0,01 mm, Schräglage erkannt |
+| Arbeitsblätter | die KI gibt grobe Kästen; penclone findet Antwortlinien im Kasten, probiert Größen von der natürlichen bis 60 % (mindestens 1,4 mm) und meldet Text, der trotzdem nicht passt | §9 |
+| Stifte | Vorgaben für Farbe, Breite, Deckkraft; Bleistift-Körnung nur im SVG; **iPad-Look** = gefüllte Umrisse, dünner wo die Hand schnell war (Zwei-Drittel-Gesetz), spitz zulaufende Enden | perfect-freehand (Ansatz), Lacquaniti et al. 1983; Werte sind Annahmen |
+| Bearbeitbare Tinte | Xournal++ (`.xopp`, gzip-XML), InkML, Excalidraw (`freedraw`) | §8; nach den Formaten geschrieben, noch nicht in jeder App geöffnet |
+| Voreinstellungen | im Profil gespeichert, gelten ohne Option; ein gespeicherter Stift, den es für die gewählte Ausgabe nicht gibt, wird ignoriert | §11 |
+
+Nicht in P3: detect-fields, `--pages N`, Textmarker, Kuli-Tintenmodell (Franke & Rose), Bleistift-Körnung im PDF.
+
 ## Zielarchitektur
 
 ```
@@ -373,8 +394,8 @@ Ausgaben: pdf · svg · png · xopp · excalidraw · inkml
 | **P0** ✓ | Glyphen-Fehler A1, A2, A4, A6, A7 ([bekannte-probleme.md](bekannte-probleme.md)) als allgemeine Regeln R1–R5; automatische Zeilenerkennung | erledigt |
 | P1 | Probe v2: deutsche Sätze (Pangramm + häufige Paare), Groß/klein gemischt, Positionen; iPad-Webaufnahme | 6–8 Varianten, richtige Proportionen |
 | **P2** ✓ | Engine ohne DOM: Layout + Silbentrennung, Zeilenmodell, Seeds pro Stelle, ein Pfad pro Zeile; `penclone render` | erledigt: [§13](#13-die-engine-ohne-browser-p2) |
-| P3 | Papier + Stifte + iPad-Stil; CLI, MCP-Server und Skill mit vollem Funktionsumfang | jeder Schritt per CLI, MCP oder Skill nutzbar |
+| **P3** ✓ | Papier (eingebaut + eigene Scans) + Stifte + iPad-Stil; Arbeitsblätter; CLI, MCP-Server und Skill mit vollem Umfang | erledigt: [§14](#14-papier-stifte-arbeitsblätter-mcp-server-und-skill-p3); offen: detect-fields, `--pages`, Textmarker, Tintenmodell |
 | P4 | Messen: OCR-Fehlerrate (deutsches TrOCR), HWD, Blindtest | Parameter begründet |
-| P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Schwellen keine Annahme mehr |
-| P6 | **Paket und Anleitung**: ein npm-Paket (CLI + MCP-Server; Pipeline nach TypeScript portiert oder per pipx mitgeliefert, damit niemand Python von Hand einrichten muss) + Endnutzer-Anleitung (DE/EN) | Installation mit einem Befehl |
+| P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Stufe 1 (IAM-OnDB) erledigt; Werkzeug + Issue-Formular fertig; Antworten sammeln offen |
+| P6 | **Paket und Anleitung**: ein npm-Paket (CLI + MCP-Server; Pipeline nach TypeScript portiert oder per pipx mitgeliefert, damit niemand Python von Hand einrichten muss) + Endnutzer-Anleitung (DE/EN) | Anleitung fertig ([anleitung.md](anleitung.md)); Installation von GitHub mit einem Befehl; offen: npm-Veröffentlichung, Python ohne Handarbeit |
 | später | Englisch-Paket, OpenType-Export | – |

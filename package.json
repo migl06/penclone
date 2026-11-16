@@ -10,22 +10,37 @@
   },
   "exports": {
     ".": "./engine/index.js",
-    "./node": "./engine/node.js"
+    "./node": "./engine/node.js",
+    "./commands": "./lib/commands.js"
   },
   "files": [
     "bin/",
     "engine/",
+    "lib/",
+    "skill/",
     "pipeline/*.py",
-    "pipeline/requirements.txt"
+    "pipeline/requirements.txt",
+    "tools/glyph_report.py",
+    "docs/guide.md",
+    "docs/de/anleitung.md"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test tests/"
+    "test": "node --test tests/*.test.mjs"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/migl06/penclone.git"
-  }
+  },
+  "keywords": [
+    "handwriting",
+    "mcp",
+    "pdf",
+    "svg",
+    "german",
+    "hyphenation",
+    "ink"
+  ]
 }

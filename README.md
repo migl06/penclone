@@ -1,22 +1,23 @@
 # penclone
 
 **Turn text into your own handwriting – rendered from your real pen strokes.**
-German first (ä ö ü ß, „quotes“, hyphenation), English too. Planned as a CLI, an MCP server and an Agent Skill that can each do the
-whole workflow.
+German first (ä ö ü ß, „quotes“, hyphenation), English too. One tool with three ways in: a **command line**, an **MCP server**
+for AI apps (Claude, ChatGPT, Cursor, …) and an **Agent Skill** – each can do the whole workflow.
 
-[Deutsch](README.de.md)
+[Deutsch](README.de.md) · [User guide](docs/guide.md)
 
 penclone takes a few pages of your handwriting (vector strokes from an iPad / Apple Pencil), turns every character into a set of
 glyph variants and writes new text with them. Unlike handwriting fonts, the same letter never looks exactly the same twice:
-variants are picked at random, the baseline drifts, pressure changes, letters are spaced by their actual ink so they never touch,
-and boxes and circles are drawn by hand.
+variants are picked at random, the baseline drifts like yours, pressure changes, and letters are spaced by their actual ink so
+they never touch.
 
-Typical uses: study notes, letters and cards, mockups, a personal handwriting font.
+Typical uses: study notes, letters and cards, answers on worksheets, mockups.
 
-> **Status: early.** Working today: glyph pipeline, handwriting profiles, quality report, and `penclone render`, which writes
-> text in your handwriting as PDF or SVG without a browser (layout, German hyphenation, a line model measured from your samples).
-> Planned: MCP server, skill, paper and pen styles, iPad output. Known problems and the plan:
-> [docs/known-issues.md](docs/known-issues.md), [docs/decisions.md](docs/decisions.md).
+> **Status: early but usable.** Working: handwriting profiles, sample sheets (full or only missing characters), layout with
+> German hyphenation and a line model measured from your samples, paper (lined, squared, dotted, German Lineaturen, your own
+> scanned paper), pens and an iPad look, worksheets, PDF / SVG / PNG and editable ink (Xournal++, InkML, Excalidraw), MCP server,
+> skill. Not yet: iPad capture page, legibility measurement (OCR), npm release. Details: [docs/known-issues.md](docs/known-issues.md),
+> [docs/decisions.md](docs/decisions.md).
 
 ## Built on research, not guesswork
 
@@ -41,16 +42,43 @@ Every feature and default comes from a cited source, from a measurement of your 
 
 Full list with links and how deeply each source was read: [docs/research.md](docs/research.md).
 
-## Handwriting profiles (working)
+## Install
+
+Needs Node.js ≥ 20, Python 3 with `numpy scipy pillow` (`pip install -r pipeline/requirements.txt`) and poppler
+(`pdftocairo`, `pdftoppm`; e.g. `apt install poppler-utils`, `brew install poppler`).
+
+```bash
+npm install -g github:migl06/penclone      # or: git clone … && node bin/penclone.js
+penclone status                             # what is there and what to do next
+```
+
+## Three ways to use it
+
+**What is penclone – a CLI, an MCP server or a skill?** All three, over the same functions (`lib/commands.js`), so none can do
+more than the others ([why](docs/decisions.md#2-cli-mcp-server-or-skill)):
+
+| Way in | For | Start |
+|---|---|---|
+| Command line | you, scripts | `penclone help` |
+| MCP server | AI apps: the AI calls penclone's tools (render, fill a worksheet, add paper from a scan, …) and gets previews back | `claude mcp add penclone -- penclone mcp` · Claude Desktop: `{"mcpServers": {"penclone": {"command": "penclone", "args": ["mcp"]}}}` |
+| Agent Skill | AI agents that run commands on your computer | copy `skill/penclone/` into your agent's skills folder |
+
+With an AI app you can simply say “write these notes in my handwriting on lined paper” or give it a scan of a worksheet; the AI
+decides what goes where, penclone measures the page and fits the writing. When characters are missing in your handwriting, the
+AI asks you whether to write them now (a small sheet with just those characters), leave them out or replace them.
+
+## Handwriting profiles
 
 Your handwriting is saved under a name and reused. Profiles live **outside the repository**
 (`~/.local/share/penclone/profiles/<name>/`), so they survive updates and re-downloads.
 
 ```bash
-python3 pipeline/profiles.py create me --pdf my_samples.pdf --lang de     # import samples
-python3 pipeline/profiles.py build me                                     # glyph library
-python3 tools/glyph_report.py --profile me --sheet sheet.png              # quality report
-python3 pipeline/profiles.py export me me.zip                             # backup / other computer
+penclone profile create me
+penclone sample-sheet --out sheet.pdf                  # print it, or write it in a notes app on the iPad (~30 min)
+penclone import me written.pdf --manifest sheet.json   # strokes → glyphs, measures your word gaps and line drift
+penclone sample-sheet --chars "§@" --out missing.pdf   # later: only characters that are missing
+penclone report me --sheet glyphs.png                  # quality report
+penclone profile export me me.zip                      # backup / other computer
 ```
 
 penclone improves through **more samples** (more variants, better proportions) and through **general rules** that are the same
@@ -59,48 +87,44 @@ base letters, a variant that reads as another letter is skipped. Users cannot ch
 as a last resort and are normally empty. No neural network is trained.
 
 **Teaching it your handwriting:** write the given sample sentences – not free text, not alphabet rows – normally and at normal
-speed, about 2–4 pages ([why](docs/decisions.md#7-teaching-penclone-your-handwriting-guided-sentences)).
+speed ([why](docs/decisions.md#7-teaching-penclone-your-handwriting-guided-sentences)).
 
-## Writing text (working)
+## Writing
 
 ```bash
-penclone render notes.txt --profile me -o notes.pdf                 # or: node bin/penclone.js render …
-penclone render notes.txt --profile me --page a5 --margin 12 --size 2.5mm --line-spacing 7.1mm -o notes.svg
-echo "Hallo Welt" | penclone render - --profile me -o hallo.pdf
+penclone render notes.txt -o notes.pdf                                     # your preferences, else blank paper, ballpoint
+penclone render notes.txt --paper lin27 --pen fineliner -o notes.pdf       # German Lineatur 27, black fineliner
+penclone render notes.txt --output ipad --paper dotted -o notes.pdf        # digital ink like a notes app
+penclone render notes.txt -o notes.xopp                                    # editable strokes in Xournal++
+penclone template add block --profile me --from empty_page.jpg             # your own paper, measured from a scan
+penclone fill worksheet.pdf --fields fields.json -o filled.pdf             # answers fitted into boxes, report per field
+penclone prefs me output=paper paper=lined pen=ballpoint                   # remembered defaults
 ```
 
-Every line break in the text starts a new line; an empty line stays empty. penclone reports characters your samples do not
-contain (they are left out, never replaced by a font) and look-alikes it used instead (’ → '). The same `--seed` gives the same
-result, and changing one word leaves the other lines unchanged. Word gaps, baseline drift, slope and the default size come from
-your sample sheet v2 when the profile has one; otherwise the defaults are marked assumptions
-([details](docs/decisions.md#13-the-engine-without-a-browser-p2)).
-
-## Everything adjustable (partly planned)
-
-Working now: `--page`, `--margin`, `--size`, `--line-spacing`, `--color`, `--seed`, `--lang`, `--no-hyphenation`, output `.pdf`
-and `.svg`. Planned:
+Every line break in the text starts a new line. The writing sits on the lines of lined, squared and dotted paper; on squared
+paper every second line is used if the squares are smaller than your line height. Missing characters are left out and reported –
+never replaced by a font. The same `--seed` gives the same result, and changing one word leaves the other lines unchanged.
 
 | Option | Values |
 |---|---|
-| `--output` | `paper` (simulated pen on paper) · `ipad` (clean digital ink) |
-| `--pen` | `ballpoint`, `pencil`, `fineliner`, `gel`, `fountain`, `highlighter` (iPad: `pen`, `pencil`, `highlighter`) |
-| `--paper` | `blank`, `lined`, `squared`, `dotted`; German presets `lin22`, `lin26`, `lin27`, `lin28`; or your own scan/PDF |
-| `--line-spacing`, `--grid`, `--margin`, `--page` | sizes in mm, page `a4`/`a5`/`letter`/custom |
-| `--size` | x-height in mm, or `auto` = your own size relative to the line, measured from your samples |
-| `--color`, `--width`, `--pages` | ink colour, stroke width, fit to N pages |
-| `--format` | `pdf`, `svg`, `png`, and editable ink: `xopp` (Xournal++), `excalidraw`, `inkml` |
+| `--paper` | `blank`, `lined`, `lined-narrow` / `-college` / `-wide` (US), `lin27`, `squared`, `lin22`, `lin26`, `lin28`, `dotted`, your template, or a scan file |
+| `--output`, `--pen` | `paper`: `ballpoint`, `fineliner`, `gel`, `fountain`, `pencil` · `ipad`: `pen`, `pencil` |
+| `--color`, `--size`, `--line-spacing`, `--grid`, `--margin`, `--page` | colour; x-height, distances in mm; page `a4`/`a5`/`letter`/`WxH` |
+| output file | `.pdf`, `.svg`, `.png`, and editable ink: `.xopp` (Xournal++), `.inkml`, `.excalidraw` |
 
-**Scanned pages and worksheets (planned):** the AI client (or you) says what goes where with a rough box; penclone measures the
-space, fits your handwriting into it and reports if something does not fit
+**Worksheets and scanned pages:** the AI (or you) gives each answer a rough box; penclone straightens the scan, finds printed
+answer lines inside the box, fits the text (smaller if needed, never unreadably small) and reports what does not fit
 ([why](docs/decisions.md#9-scanned-pages-and-worksheets-the-ai-says-what-goes-where-penclone-makes-it-fit)).
 
-GoodNotes/Notability: import the PDF (or PNG lines) and write on top; the generated strokes themselves cannot be made editable
-there because the format is closed ([details](docs/decisions.md#editable-on-the-ipad-goodnotes)).
+GoodNotes/Notability: import the PDF and write on top; the generated strokes cannot be made editable there because the format is
+closed ([details](docs/decisions.md#editable-on-the-ipad-goodnotes)).
 
 ## How it works
 
 ```
-samples (iPad PDF) ──► profile ──pipeline/──► glyphs.json + layout.json ──engine/──► SVG / PDF
+samples (iPad PDF) ──► profile ──pipeline/──► glyphs.json + layout.json ──engine/──► PDF · SVG · PNG · xopp · InkML · Excalidraw
+                                                                   ▲
+                                         lib/commands.js ── CLI (bin/penclone.js) · MCP server (lib/mcp.js) · skill
 ```
 
 1. **Extract** (`pipeline/svg_strokes.py`): every stroked path becomes a polyline.
@@ -108,7 +132,10 @@ samples (iPad PDF) ──► profile ──pipeline/──► glyphs.json + layo
 3. **Normalise and apply the general rules**: baseline, x-height, punctuation heights, smoothing, slant; rules R1–R5.
 4. **Lay out and render** (`engine/`, no browser needed): random variant per character with its own random stream per word,
    damped random walk for size/rotation, pressure per word and letter, spacing from the ink profile; lines filled like by hand,
-   German hyphenation against large gaps, baseline drift and slope per line; SVG and PDF with one path per line.
+   German hyphenation against large gaps, baseline drift and slope per line, baselines on the rules of the paper; one path per
+   line. iPad look: filled outlines, thinner where the hand was fast (two-thirds power law), tapered ends.
+5. **Scans** (`pipeline/scan_paper.py`): straightened by projection profiles; ruled lines, squares, dots and margin lines found
+   and measured, so nobody measures by hand.
 
 The sample sheet layout (v1) is described in [samples/README.md](samples/README.md).
 

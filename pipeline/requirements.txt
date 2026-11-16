@@ -1,3 +1,4 @@
 numpy
 scipy
+pillow      # scanned paper and worksheets (scan_paper.py)
 matplotlib  # only for tools/glyph_report.py --sheet

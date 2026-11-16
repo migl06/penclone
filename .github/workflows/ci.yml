@@ -20,8 +20,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
-      - name: Install Python dependencies
-        run: pip install -r pipeline/requirements.txt
+      - name: Install Python dependencies and poppler
+        run: |
+          pip install -r pipeline/requirements.txt
+          sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
       - name: No handwriting data in the repository
         run: |
           bad=$(git ls-files | grep -P '\.(pdf|svg|png|zip)$|glyphs[^/]*\.json$|^(samples/(?!README\.md)|profiles/|data/|scans/|local/)' || true)
@@ -36,6 +38,8 @@ jobs:
           python pipeline/make_sheet.py --help
           python pipeline/build_glyphs_v2.py --help
           python pipeline/measure_layout.py --help
+          python pipeline/scan_paper.py --help
+          python pipeline/validate_profile.py --help
       - name: Sample sheet v2 round trip (synthetic handwriting)
         run: python tests/test_sheet_v2.py
       - name: Profile round trip (no samples needed)
@@ -51,7 +55,9 @@ jobs:
           python pipeline/profiles.py list
       - name: Engine syntax
         run: node --check engine/handwriting.js
-      - name: Engine tests (synthetic handwriting)
+      - name: Engine, commands and MCP server (synthetic handwriting)
         run: node --test tests/*.test.mjs
       - name: penclone command line starts
-        run: node bin/penclone.js help
+        run: |
+          node bin/penclone.js help
+          node bin/penclone.js styles

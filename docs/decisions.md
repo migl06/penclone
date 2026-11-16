@@ -50,25 +50,27 @@ penclone mcp        # start the MCP server (stdio)
 Every capability lives in the core and gets a **CLI command the moment it is built**. MCP tools and the skill are thin layers over
 the same commands, so nothing is ever possible in one interface but not in the other.
 
-| Step | CLI | MCP tool | Skill |
+| Step | CLI | MCP tool | Status |
 |---|---|---|---|
-| See the state and the next step | `penclone status`, wizard `penclone init` | `get_status` | ✓ follows it |
-| Add your own paper template | `penclone template add NAME --from scan.pdf` | `add_template` | ✓ |
-| Create / list / show a handwriting profile (**done:** `pipeline/profiles.py`) | `penclone profile create NAME --pdf …` | `create_profile`, `list_profiles` | ✓ |
-| Back up or move a profile (**done**) | `penclone profile export NAME file.zip` / `import` | `export_profile` | ✓ |
-| Create a sample sheet to write on (PDF / iPad template) | `penclone sample-sheet --lang de` | `create_sample_sheet` | ✓ explains how to write it |
-| Capture samples on the iPad (time, pressure, tilt) | `penclone capture` (serves the capture page) | `start_capture` | ✓ |
-| Import samples (iPad PDF export or capture data) | `penclone import samples.pdf` | `import_samples` | ✓ |
-| Build the glyph library | `penclone build` | `build_glyphs` | ✓ |
-| Quality report, contact sheet | `penclone report --sheet` | `glyph_report` (returns image) | ✓ interprets the report, suggests fixes |
-| Optional personal override (**done**, normally not needed) | `penclone override NAME …`, `penclone block NAME k alphabet-v1:p3` | `set_override` | ✓ asks why, logs it |
-| Render text/Markdown | `penclone render notes.md --output paper\|ipad --pen … --paper … --format …` | `render_handwriting` (path + preview) | ✓ |
-| Fit to a page count / font size | `penclone render --pages 10` | option of `render_handwriting` | ✓ |
-| List paper, pens, colours, languages | `penclone styles` | `list_styles` | ✓ |
-| Suggest writable fields on a scan/PDF (optional helper) | `penclone detect-fields sheet.pdf` | `detect_fields` (with numbered preview) | ✓ |
-| Write text into fields of a scan/PDF, fitted to the space | `penclone fill sheet.pdf --fields fields.json` | `fill_page` (with fit report) | ✓ |
-| Check legibility (OCR error rate) | `penclone check out.pdf` | `check_legibility` | ✓ |
-| Export a handwriting font (OpenType) | `penclone font` | `export_font` | ✓ |
+| See the state and the next step | `penclone status`, wizard `penclone init` | `get_status` | **done** |
+| Create / list profiles | `penclone profile create NAME`, `profile list` | `create_profile`, `list_profiles` | **done** |
+| Back up or move a profile | `penclone profile export NAME file.zip` / `import` | `export_profile`, `import_profile` | **done** |
+| Create a sample sheet (all sentences, or only missing characters) | `penclone sample-sheet [--chars "§@"]` | `create_sample_sheet` | **done** |
+| Import a written sheet and build | `penclone import NAME sheet.pdf --manifest sheet.json` | `import_samples` | **done** |
+| Rebuild the glyph libraries | `penclone profile build NAME [--only v1\|v2\|chars]` | `build_profile` | **done** |
+| Quality report, contact sheet | `penclone report NAME --sheet image.png` | `glyph_report` (with image) | **done** |
+| Preferences (output, pen, colour, paper, page, language, format) | `penclone prefs NAME key=value` | `set_preferences` | **done** |
+| Own paper template (scan or parameters) | `penclone template add NAME --from scan.pdf` | `add_template` | **done** |
+| Write text | `penclone render file.txt --output paper\|ipad --pen … --paper … -o x.pdf\|svg\|png\|xopp\|inkml\|excalidraw` | `render_handwriting` (file + preview) | **done** |
+| List papers, pens, formats | `penclone styles` | `list_styles` | **done** |
+| Write text into fields of a scan/PDF, fitted | `penclone fill sheet.pdf --fields fields.json` | `fill_page` (preview + report per field) | **done** |
+| Anonymous statistics for checking the rules | `penclone validate NAME` | `anonymous_statistics` | **done** |
+| Optional personal override (normally not needed) | `penclone profile override …`, `profile block …` | – (CLI only on purpose: should be rare) | done |
+| Capture samples on the iPad (time, pressure, tilt) | `penclone capture` | `start_capture` | planned |
+| Suggest fields on a scan (optional helper) | `penclone detect-fields` | `detect_fields` | planned |
+| Fit to a page count | `penclone render --pages N` | option | planned |
+| Check legibility (OCR) | `penclone check` | `check_legibility` | planned (P4) |
+| Handwriting font (OpenType) | `penclone font` | `export_font` | later |
 
 The skill lives in `skill/penclone/` (`SKILL.md` + `references/` for options and the sample-writing guide). It never contains
 handwriting data.
@@ -345,6 +347,24 @@ Line model, in x-heights of the writer (defaults from `layout.json` in the profi
 Hyphenation is deliberately rare: a word is split only if moving it to the next line would leave more than 6 x-heights empty, or
 if it does not fit on a line at all. Handwriting is ragged; the threshold is an assumption to be checked in P4.
 
+## 14. Paper, pens, worksheets, MCP server and skill (P3)
+
+**One function per capability in `lib/commands.js`; the command line (`bin/penclone.js`) and the MCP server (`lib/mcp.js`) are thin
+layers over it, the skill (`skill/penclone/`) drives the command line.** That is how the parity rule of §2 is enforced in code.
+
+| Part | Decision | Basis |
+|---|---|---|
+| MCP server | JSON-RPC 2.0 over stdin/stdout, written without the SDK (no dependencies); tools only; answers carry a JSON report and a PNG preview; server instructions tell the AI to call `get_status` first and to **ask the user about missing characters** | MCP specification (tools, stdio transport) |
+| Missing characters | never a font fallback; reported, and the AI asks: write them now on a **character sheet** (`n§n n§n n§n`, the n give size and baseline, so a few characters can be added without the full sheet), leave them out, or replace them | own design; n = x-height letter, the pipeline measures the x-height from such letters |
+| Paper | built-in templates drawn as vectors; baselines on the rules; on squared/dotted paper every k-th grid line so the line distance is at least the natural one | §12; k: assumption |
+| Own paper from a scan | `pipeline/scan_paper.py`: deskew by projection profiles, rules/squares/dots/margin lines from row and column profiles, spacing refined by a least-squares fit over all lines; cleaned scan kept as background | synthetic test scans (lined 7.1 mm, squared and dotted 5 mm, rotated 1.2°): spacing within 0.01 mm, skew found |
+| Worksheets | the AI gives rough boxes; penclone finds answer lines inside a box, tries sizes from the natural one down to 60 % (at least 1.4 mm) and reports text that still does not fit | §9 |
+| Pens | presets of colour, width and opacity; pencil grain only in SVG; **iPad look** = filled outlines, thinner where the hand was fast (two-thirds power law), tapered ends | perfect-freehand (approach), Lacquaniti et al. 1983; values are assumptions |
+| Editable ink | Xournal++ (`.xopp`, gzip XML), InkML, Excalidraw (`freedraw`) | §8; written from the formats as documented/found, not yet opened in every app |
+| Preferences | stored in the profile, used when no option is given; a saved pen that does not exist for the chosen output is ignored | §11 |
+
+Not done in P3: detect-fields, `--pages N`, highlighter, ballpoint ink model (Franke & Rose), pencil grain in PDF.
+
 ## Target architecture
 
 ```
@@ -372,8 +392,8 @@ outputs: pdf · svg · png · xopp · excalidraw · inkml
 | **P0** ✓ | Glyph bugs A1, A2, A4, A6, A7 ([known-issues.md](known-issues.md)) as general rules R1–R5; automatic row detection | done |
 | P1 | Sample v2: German sentences (pangram + frequent pairs), mixed case, word positions; iPad web capture | 6–8 variants, correct proportions |
 | **P2** ✓ | DOM-free engine: layout + hyphenation, line model, per-position seeds, one path per line; `penclone render` | done: [§13](#13-the-engine-without-a-browser-p2) |
-| P3 | Paper + pens + iPad style; CLI, MCP server and skill with full parity | every step usable from the CLI, any MCP client or the skill |
+| **P3** ✓ | Paper (built-in + own scans) + pens + iPad style; worksheets; CLI, MCP server and skill with full parity | done: [§14](#14-paper-pens-worksheets-mcp-server-and-skill-p3); open: detect-fields, `--pages`, highlighter, ink model |
 | P4 | Measure: OCR error rate (German TrOCR), HWD, blind test | parameters justified |
-| P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | thresholds no longer an assumption |
-| P6 | **Packaging and user guide**: one npm package (CLI + MCP server; pipeline ported to TypeScript or shipped via pipx so users need no manual Python setup) + end-user guide (EN/DE) | install with one command |
+| P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | stage 1 (IAM-OnDB) done; tool + issue form done; collecting answers open |
+| P6 | **Packaging and user guide**: one npm package (CLI + MCP server; pipeline ported to TypeScript or shipped via pipx so users need no manual Python setup) + end-user guide (EN/DE) | guide done ([guide.md](guide.md)); install from GitHub with one command; open: npm release, Python without manual setup |
 | later | English language pack, OpenType export | – |

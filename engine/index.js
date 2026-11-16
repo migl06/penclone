@@ -14,7 +14,9 @@ export { loadLibrary, resolve } from './glyphs.js';
 export { shapeWord, splitWord, place, SHAPE } from './shape.js';
 export { layout, measured, LAYOUT, PAGES } from './layout.js';
 export { compile as compileHyphenation, breakPoints, wordBreaks } from './hyphenate.js';
-export { toSVG, toPDF, INK } from './output.js';
+export { toSVG, toPDF, toXournal, toInkML, toExcalidraw, INK } from './output.js';
+export { PAPERS, resolvePaper, writingArea, paperItems } from './paper.js';
+export { PENS, resolvePen, outline } from './pens.js';
 export { hash, prng, stream } from './rng.js';
 
 /** Hyphenation pattern set per language (TeX hyph-utf8 tags). English follows with the English language pack. */

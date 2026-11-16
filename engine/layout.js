@@ -7,6 +7,7 @@
 import { stream, gauss } from './rng.js';
 import { shapeWord, splitWord } from './shape.js';
 import { wordBreaks } from './hyphenate.js';
+import { resolvePaper, writingArea } from './paper.js';
 
 export const PAGES = { a4: [210, 297], a5: [148, 210], letter: [215.9, 279.4] };   // mm (ISO 216, ANSI)
 
@@ -85,15 +86,19 @@ export function simplify(pts, eps) {
 /**
  * @typedef {{pts: number[][], w: number, filled: boolean}} Stroke
  * @typedef {{strokes: Stroke[], rule: number, text: string}} Line
- * @typedef {{width: number, height: number, lines: Line[]}} Page
- * @typedef {{pages: Page[], missing: Record<string, number>, substituted: Record<string, number>, overflow: string[], xHeight: number, lineSpacing: number}} Document
+ * @typedef {{width: number, height: number, lines: Line[], paper?: import('./paper.js').Paper, top?: number}} Page
+ * @typedef {{pages: Page[], missing: Record<string, number>, substituted: Record<string, number>, overflow: string[],
+ *   xHeight: number, lineSpacing: number, unplaced: string[]}} Document
  */
 
 /**
  * Lay out text. Every newline starts a new line; an empty line stays empty.
  * @param {import('./glyphs.js').Library} lib
  * @param {string} text
- * @param {Partial<typeof LAYOUT> & {seed?: string|number, hyphenator?: any, positions?: boolean}} [options]
+ * @param {Partial<typeof LAYOUT> & {seed?: string|number, hyphenator?: any, positions?: boolean,
+ *   paper?: string|import('./paper.js').Paper, grid?: number, penScale?: number, rules?: number[], maxPages?: number}} [options]
+ *   paper: built-in name or scan template; rules: explicit baselines (one page, e.g. a worksheet field);
+ *   maxPages: stop after this many pages and return the rest as `unplaced`.
  * @returns {Document}
  */
 export function layout(lib, text, options = {}) {
@@ -102,7 +107,13 @@ export function layout(lib, text, options = {}) {
   const [pw, ph] = typeof o.page === 'string' ? PAGES[o.page] : o.page;
   const [mt, mr, mb, ml] = o.margin;
   const xh = o.xHeight, k = xh / lib.xHeight;          // mm per em
-  const maxW = pw - ml - mr;
+  const paper = resolvePaper(o.paper, { lineSpacing: options.lineSpacing, grid: o.grid });
+  const area = writingArea(paper, { width: pw, height: ph, margin: o.margin, lineSpacing: o.lineSpacing, xHeight: xh });
+  const rules = o.rules ?? area.rules;
+  if (!rules.length) throw new Error('no room for a single line: check page size, margins and line spacing');
+  const left = o.rules ? ml : area.left;
+  const maxW = (o.rules ? pw - mr : area.right) - left;
+  const penScale = o.penScale ?? 1;
   const missing = {}, substituted = {}, overflow = [];
   const seen = new Map();
   const shape = (w) => {
@@ -156,32 +167,35 @@ export function layout(lib, text, options = {}) {
   }
   while (lines.length > 1 && !lines[lines.length - 1].words.length) lines.pop();
 
-  // 2. place lines on pages and turn glyphs into strokes in mm
+  // 2. place lines on the rules of the pages and turn glyphs into strokes in mm
   /** @type {Page[]} */ const pages = [];
-  const perPage = Math.max(1, Math.floor((ph - mt - mb) / o.lineSpacing));
+  const unplaced = [];
+  const perPage = rules.length;
   lines.forEach((ln, i) => {
     const pi = Math.floor(i / perPage), li = i % perPage;
-    if (!pages[pi]) pages.push({ width: pw, height: ph, lines: [] });
-    const rule = mt + (li + 1) * o.lineSpacing;
+    if (o.maxPages && pi >= o.maxPages) { unplaced.push(ln.words.map((w) => w.word.text).join(' ')); return; }
+    if (!pages[pi]) pages.push({ width: pw, height: ph, lines: [], paper, top: mt });
+    const rule = rules[li];
     const r = stream(seed, 'line', pi, li);
-    const x0 = ml + gauss(r) * o.lineStartSd * xh;
+    const x0 = left + gauss(r) * o.lineStartSd * xh;
     const slope = Math.tan((o.slopeDeg.mean + gauss(r) * o.slopeDeg.sd) * Math.PI / 180);
     const drift = driftFn(r, o.drift, maxW / xh);
     const base = rule - o.baselineOffset * xh;
     /** @type {Stroke[]} */ const strokes = [];
     for (const { word, x } of ln.words) {
       for (const { glyph, x: gx } of word.placed) {
-        const left = x + gx * k;
-        const center = left + glyph.W * k / 2;
+        const gl = x + gx * k;
+        const center = gl + glyph.W * k / 2;
         const y0 = base + drift(center / xh) * xh + center * slope;
         for (const q of glyph.polys) {
-          const pts = q.map(([px, py]) => [x0 + left + px * k, y0 + py * k]);
-          strokes.push({ pts: glyph.filled ? pts : simplify(pts, o.simplify), w: glyph.w * k, filled: glyph.filled });
+          const pts = q.map(([px, py]) => [x0 + gl + px * k, y0 + py * k]);
+          strokes.push({ pts: glyph.filled ? pts : simplify(pts, o.simplify), w: glyph.w * k * penScale, filled: glyph.filled });
         }
       }
     }
     pages[pi].lines.push({ strokes, rule, text: ln.words.map((w) => w.word.text).join(' ') });
   });
-  if (!pages.length) pages.push({ width: pw, height: ph, lines: [] });
-  return { pages, missing, substituted, overflow, xHeight: xh, lineSpacing: o.lineSpacing };
+  if (!pages.length) pages.push({ width: pw, height: ph, lines: [], paper, top: mt });
+  while (unplaced.length && !unplaced[unplaced.length - 1]) unplaced.pop();
+  return { pages, missing, substituted, overflow, unplaced, xHeight: xh, lineSpacing: rules.length > 1 ? rules[1] - rules[0] : o.lineSpacing };
 }

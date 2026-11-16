@@ -1,134 +1,201 @@
 #!/usr/bin/env node
 // @ts-check
-/* penclone command line. Every capability gets a command as soon as it exists (docs/decisions.md §2, full parity).
- * The Python pipeline (profiles, sample sheets) is reached through the same entry point until it is ported (P6). */
-import { spawnSync } from 'node:child_process';
+/* penclone command line: a thin layer over lib/commands.js, like the MCP server (docs/decisions.md §2, full parity). */
 import { readFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { hyphenator, render, LAYOUT, PAGES } from '../engine/index.js';
-import { loadProfile, loadGlyphFile, writeDocument } from '../engine/node.js';
+import { createInterface } from 'node:readline/promises';
+import * as C from '../lib/commands.js';
+import { LAYOUT, PAPERS, PENS } from '../engine/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const HELP = `penclone - text in your own handwriting
 
-Usage:
-  penclone render FILE|- [options]     write text (a file, or - for stdin) in a profile's handwriting
-  penclone profile ...                 manage handwriting profiles (create, add-sample, build, list, show, export, import)
-  penclone sample-sheet --out FILE     create sample sheet v2 (sentences to write by hand)
-  penclone help [render]
+Getting started:
+  penclone status [--profile NAME]          what is there and what to do next
+  penclone init [--profile NAME]            first start: asks language, output and paper, then shows the next step
 
-Render options:
+Write:
+  penclone render FILE|- [options]          write a text file (or - for stdin) in your handwriting
+  penclone fill SHEET --fields F.json [opt] write answers into the boxes of a scanned page or PDF, fitted to the space
+
+Handwriting:
+  penclone sample-sheet [--chars C] --out F.pdf   sheet to write by hand (all sentences, or only some characters)
+  penclone import NAME WRITTEN.pdf --manifest F.json   add a written sheet to a profile and build it
+  penclone profile create|list|show|build|export|import|override|block ...   manage profiles
+  penclone report NAME [--sheet out.png]    quality report of the glyphs
+  penclone validate NAME                    anonymous numbers to help check the general rules (nothing is sent)
+
+Paper and settings:
+  penclone template add NAME --profile P --from SCAN    own paper, measured from a scan of an empty page
+  penclone template add NAME --profile P --type lined --line-spacing 7mm [--margins left,right]
+  penclone prefs NAME [key=value ...]       usual output, pen, color, paper, page, lang, format (key= to clear)
+  penclone styles [--profile NAME]          papers, pens, formats
+
+AI apps:
+  penclone mcp                              MCP server on stdin/stdout (for Claude, ChatGPT, Cursor, ...)
+
+Options of render and fill:
   --profile NAME          handwriting profile (or --glyphs FILE [--layout FILE])
-  --glyph-set v1|v2|both  glyph library of the profile (default v1)
-  -o, --out FILE          .pdf or .svg (default: input name with .pdf)
+  -o, --out FILE          .pdf .svg .png .xopp .inkml .excalidraw (default: input name with .pdf)
   --text TEXT             text to write instead of a file
-  --page a4|a5|letter|WxH paper size, WxH in mm (default a4)
+  --paper P               ${Object.keys(PAPERS).join(', ')}, an own template, or a scan file
+  --output paper|ipad     pen on paper, or clean digital ink like a notes app
+  --pen PEN               paper: ${Object.keys(PENS.paper).join(', ')}; ipad: ${Object.keys(PENS.ipad).join(', ')}
+  --color #RRGGBB         ink colour (default: the pen's)
+  --page a4|a5|letter|WxH paper size, WxH in mm (default a4; a scan keeps its size)
   --margin MM             one value or top,right,bottom,left (default 20)
   --size MM               x-height (default: measured from your samples, else ${LAYOUT.xHeight} mm)
-  --line-spacing MM       distance of the lines (default ${LAYOUT.lineSpacing} mm)
-  --color #RRGGBB         ink colour
-  --lang de               language for hyphenation (default de)
-  --no-hyphenation        never split words
-  --seed N                another seed gives another, equally valid handwriting sample (default 1)
-  --json                  print the result summary as JSON
+  --line-spacing MM       line distance on blank paper (default ${LAYOUT.lineSpacing} mm); spacing of 'lined'
+  --grid MM               square / dot size of 'squared' and 'dotted'
+  --lang de               language for hyphenation; --no-hyphenation never splits words
+  --seed N                another seed gives another, equally valid version (default 1)
+  --glyph-set auto|v1|v2|both   which glyph library of the profile
+  --json                  print the result as JSON
 
 Lengths accept mm (default), cm, in or pt, e.g. --size 2.4mm, --line-spacing 0.3in.`;
 
-/** Length in mm from "8", "8mm", "0.8cm", "0.3in", "20pt". */
-function mm(v, what) {
-  const m = /^\s*(-?\d+(?:[.,]\d+)?)\s*(mm|cm|in|pt)?\s*$/i.exec(String(v));
-  if (!m) throw new Error(`${what}: not a length: ${v}`);
-  const n = Number(m[1].replace(',', '.'));
-  return n * { mm: 1, cm: 10, in: 25.4, pt: 25.4 / 72 }[(m[2] || 'mm').toLowerCase()];
-}
+const RENDER_OPTS = {
+  profile: { type: 'string' }, glyphs: { type: 'string' }, layout: { type: 'string' }, 'glyph-set': { type: 'string' },
+  out: { type: 'string', short: 'o' }, text: { type: 'string' }, paper: { type: 'string' }, output: { type: 'string' },
+  pen: { type: 'string' }, color: { type: 'string' }, width: { type: 'string' }, page: { type: 'string' },
+  margin: { type: 'string' }, size: { type: 'string' }, 'line-spacing': { type: 'string' }, grid: { type: 'string' },
+  lang: { type: 'string' }, 'no-hyphenation': { type: 'boolean' }, seed: { type: 'string' }, json: { type: 'boolean' },
+  fields: { type: 'string' }, 'sheet-page': { type: 'string' }, format: { type: 'string' },
+};
 
-function page(v) {
-  if (PAGES[v.toLowerCase()]) return v.toLowerCase();
-  const m = /^(.+?)x(.+)$/i.exec(v);
-  if (!m) throw new Error(`--page: use a4, a5, letter or WxH in mm, got ${v}`);
-  return [mm(m[1], '--page'), mm(m[2], '--page')];
-}
+const args = (argv, options, extra = {}) => parseArgs({ args: argv, allowPositionals: true, options: { ...options, help: { type: 'boolean', short: 'h' }, ...extra } });
 
-async function cmdRender(argv) {
-  const { values: a, positionals } = parseArgs({
-    args: argv, allowPositionals: true,
-    options: {
-      profile: { type: 'string' }, glyphs: { type: 'string' }, layout: { type: 'string' },
-      'glyph-set': { type: 'string' }, out: { type: 'string', short: 'o' }, text: { type: 'string' },
-      page: { type: 'string' }, margin: { type: 'string' }, size: { type: 'string' },
-      'line-spacing': { type: 'string' }, color: { type: 'string' }, lang: { type: 'string' },
-      'no-hyphenation': { type: 'boolean' }, seed: { type: 'string' }, json: { type: 'boolean' },
-      help: { type: 'boolean', short: 'h' },
-    },
-  });
-  if (a.help) { console.log(HELP); return 0; }
-  if (!a.profile === !a.glyphs) throw new Error('give either --profile NAME or --glyphs FILE');
-  const src = positionals[0];
-  if (a.text === undefined && !src) throw new Error('nothing to write: give a file, - for stdin, or --text');
-  const text = a.text ?? readFileSync(src === '-' ? 0 : src, 'utf8');
-  const P = a.profile
-    ? loadProfile(a.profile, { glyphSet: /** @type {any} */ (a['glyph-set']) })
-    : loadGlyphFile(a.glyphs, a.layout);
-  const out = a.out ?? (src && src !== '-' ? src.replace(/\.[^./]*$/, '') + '.pdf' : 'penclone.pdf');
-
-  const opts = { ...P.layout };
-  if (a.page) opts.page = page(a.page);
-  if (a.margin) {
-    const v = a.margin.split(',').map((x) => mm(x, '--margin'));
-    if (![1, 4].includes(v.length)) throw new Error('--margin: one value or top,right,bottom,left');
-    opts.margin = v.length === 1 ? [v[0], v[0], v[0], v[0]] : v;
-  }
-  if (a.size) opts.xHeight = mm(a.size, '--size');
-  if (a['line-spacing']) opts.lineSpacing = mm(a['line-spacing'], '--line-spacing');
-  const lang = a.lang ?? 'de';
-  opts.hyphenate = !a['no-hyphenation'];
-  opts.hyphenator = opts.hyphenate ? await hyphenator(lang) : null;
-  opts.seed = a.seed ?? 1;
-  const doc = render(P.lib, text, opts);
-  const files = writeDocument(doc, out, { color: a.color, title: src && src !== '-' ? basename(src) : undefined });
-
-  const lines = doc.pages.reduce((n, p) => n + p.lines.length, 0);
-  const fromSamples = Object.keys(P.layout);
-  const summary = {
-    files, pages: doc.pages.length, lines, xHeightMm: +doc.xHeight.toFixed(2), lineSpacingMm: doc.lineSpacing,
-    glyphs: P.glyphFiles.map((f) => basename(f)),
-    measuredFromSamples: fromSamples, missing: doc.missing, substituted: doc.substituted, overflow: doc.overflow,
-    hyphenation: opts.hyphenator ? lang : (opts.hyphenate ? `none for ${lang}` : 'off'),
+function renderOpts(a) {
+  return {
+    profile: a.profile, glyphs: a.glyphs, layoutFile: a.layout, glyphSet: a['glyph-set'], out: a.out, text: a.text,
+    paper: a.paper, output: a.output, pen: a.pen, color: a.color, width: a.width, page: a.page, margin: a.margin,
+    size: a.size, lineSpacing: a['line-spacing'], grid: a.grid, lang: a.lang, hyphenation: !a['no-hyphenation'],
+    seed: a.seed, format: a.format,
   };
-  if (a.json) { console.log(JSON.stringify(summary, null, 1)); return 0; }
-  console.log(`${files.join(', ')}: ${summary.pages} page(s), ${lines} lines, x-height ${summary.xHeightMm} mm, line spacing ${doc.lineSpacing} mm`);
-  console.log(`  glyphs: ${summary.glyphs.join(' + ')}; from your samples: ${fromSamples.length ? fromSamples.join(', ') : 'nothing (no layout.json; defaults are assumptions)'}`);
-  const list = (o) => Object.entries(o).map(([c, n]) => `${JSON.stringify(c)}×${n}`).join(' ');
-  if (Object.keys(doc.missing).length) console.log(`  not in your handwriting (left out): ${list(doc.missing)}`);
-  if (Object.keys(doc.substituted).length) console.log(`  drawn with a look-alike: ${list(doc.substituted)}`);
-  if (doc.overflow.length) console.log(`  too long for a line, written past the margin: ${doc.overflow.join(', ')}`);
-  if (opts.hyphenate && !opts.hyphenator) console.log(`  no hyphenation patterns for "${lang}" yet`);
-  return 0;
 }
 
-/** Forward to the Python pipeline (until it is ported in P6). */
-function python(script, argv) {
-  const r = spawnSync(process.env.PYTHON || 'python3', [join(ROOT, 'pipeline', script), ...argv], { stdio: 'inherit' });
-  if (r.error) throw new Error(`could not start Python (${r.error.message}); the pipeline needs Python 3 with numpy`);
-  return r.status ?? 1;
+const list = (o) => Object.entries(o).map(([c, n]) => `${JSON.stringify(c)}×${n}`).join(' ');
+
+function printNext(st) {
+  console.log(`→ ${st.next.say}\n  ${st.next.cli}`);
+  for (const x of st.optional ?? []) console.log(`  (${x.say})\n    ${x.cli}`);
 }
+
+const commands = {
+  async render(argv) {
+    const { values: a, positionals } = args(argv, RENDER_OPTS);
+    if (a.help) return console.log(HELP);
+    const r = await C.render({ ...renderOpts(a), input: positionals[0] });
+    if (a.json) return console.log(JSON.stringify(r, null, 1));
+    console.log(`${r.files.join(', ')}: ${r.pages} page(s), ${r.lines} lines, x-height ${r.xHeightMm} mm, line spacing ${r.lineSpacingMm} mm`);
+    console.log(`  paper ${r.paper}, ${r.output} / ${r.pen}; glyphs ${r.glyphs.join(' + ')}; from your samples: ${r.measuredFromSamples.join(', ') || 'nothing (defaults are assumptions)'}`);
+    if (Object.keys(r.substituted).length) console.log(`  drawn with a look-alike: ${list(r.substituted)}`);
+    if (r.overflow.length) console.log(`  too long for a line, written past the margin: ${r.overflow.join(', ')}`);
+    if (r.missingAdvice) console.log(`  not in your handwriting (left out): ${list(r.missing)}\n  to add them: ${r.missingAdvice.cli}`);
+  },
+  async fill(argv) {
+    const { values: a, positionals } = args(argv, RENDER_OPTS);
+    if (a.help || !positionals[0]) return console.log(HELP);
+    const r = await C.fill({ ...renderOpts(a), sheet: positionals[0], fields: a.fields, page: a['sheet-page'] ? Number(a['sheet-page']) : undefined });
+    if (a.json) return console.log(JSON.stringify(r, null, 1));
+    console.log(`${r.files.join(', ')} (scan straightened by ${r.skewCorrectedDeg}°)`);
+    for (const f of r.fields) {
+      console.log(`  field ${f.field}: ${f.fits ? 'fits' : 'DOES NOT FIT'}${f.sizeMm ? `, x-height ${f.sizeMm} mm, ${f.lines} line(s)${f.onRuledLines ? ' on the printed lines' : ''}` : ''}${f.advice ? ` - ${f.advice}` : f.reason ? ` - ${f.reason}` : ''}`);
+    }
+    if (r.missingAdvice) console.log(`  not in your handwriting: ${r.missingAdvice.chars}\n  to add them: ${r.missingAdvice.cli}`);
+  },
+  async status(argv) {
+    const { values: a } = args(argv, { profile: { type: 'string' }, json: { type: 'boolean' } });
+    const st = C.status({ profile: a.profile });
+    if (a.json) return console.log(JSON.stringify(st, null, 1));
+    if (st.profile) {
+      console.log(`profile ${st.profile}: ${st.sources.join(', ') || 'no samples'}${st.ready ? `, ${st.glyphChars} characters${st.measuredLayout ? ', line habits measured' : ''}` : ''}`);
+      if (Object.keys(st.preferences).length) console.log(`  preferences: ${Object.entries(st.preferences).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+    } else if (st.profiles.length) console.log(`profiles: ${st.profiles.join(', ')}`);
+    printNext(st);
+  },
+  async init(argv) {
+    const { values: a } = args(argv, { profile: { type: 'string' } });
+    if (!process.stdin.isTTY) { console.log('init asks questions; run it in a terminal. Without questions: penclone status'); return; }
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const ask = async (q, def, choices) => {
+      for (;;) {
+        const v = (await rl.question(`${q}${choices ? ` (${choices.join('/')})` : ''} [${def}]: `)).trim() || def;
+        if (!choices || choices.includes(v)) return v;
+        console.log(`  please choose one of: ${choices.join(', ')}`);
+      }
+    };
+    try {
+      const names = C.listProfiles().map((p) => p.name);
+      const name = a.profile ?? await ask('Name of your handwriting profile', names[0] ?? 'me');
+      if (!names.includes(name)) { C.createProfile({ name, lang: 'de' }); console.log(`  created profile ${name}`); }
+      const lang = await ask('Language', 'de', ['de', 'en']);
+      const output = await ask('Output: pen on paper, or digital ink like on the iPad', 'paper', ['paper', 'ipad']);
+      const paper = await ask('Paper', output === 'ipad' ? 'dotted' : 'blank', Object.keys(PAPERS));
+      console.log('  saved:', JSON.stringify(C.setPreferences({ profile: name, lang, output, paper })));
+      console.log('  pen, colour and sizes start with defaults; change them any time with: penclone prefs', name, 'pen=fineliner');
+      printNext(C.status({ profile: name }));
+    } finally { rl.close(); }
+  },
+  async prefs(argv) {
+    const [name, ...kv] = argv;
+    if (!name) return console.log('usage: penclone prefs NAME [key=value ...]   keys: output pen color paper page lang format');
+    const set = Object.fromEntries(kv.map((x) => { const i = x.indexOf('='); if (i < 0) throw new Error(`use key=value, got ${x}`); return [x.slice(0, i), x.slice(i + 1)]; }));
+    console.log(JSON.stringify(Object.keys(set).length ? C.setPreferences({ profile: name, ...set }) : C.status({ profile: name }).preferences ?? {}, null, 1));
+  },
+  async template(argv) {
+    const [sub, ...rest] = argv;
+    const { values: a, positionals } = args(rest, { profile: { type: 'string' }, from: { type: 'string' }, type: { type: 'string' },
+      'line-spacing': { type: 'string' }, grid: { type: 'string' }, margins: { type: 'string' }, 'no-background': { type: 'boolean' } });
+    if (sub === 'add' && positionals[0]) {
+      const r = C.addTemplate({ profile: a.profile, name: positionals[0], from: a.from, type: a.type, lineSpacing: a['line-spacing'],
+        grid: a.grid, margins: a.margins?.split(','), background: !a['no-background'] });
+      return console.log(JSON.stringify(r, null, 1));
+    }
+    if (sub === 'list') return console.log(JSON.stringify(C.styles({ profile: a.profile }).ownTemplates));
+    console.log('usage: penclone template add NAME --profile P (--from SCAN | --type lined|squared|dotted|blank ...)  |  template list --profile P');
+  },
+  async styles(argv) {
+    const { values: a } = args(argv, { profile: { type: 'string' } });
+    console.log(JSON.stringify(C.styles({ profile: a.profile }), null, 1));
+  },
+  async 'sample-sheet'(argv) {
+    const { values: a } = args(argv, { out: { type: 'string', short: 'o' }, chars: { type: 'string' }, lines: { type: 'string' } });
+    const r = C.sampleSheet({ out: a.out ?? (a.chars ? 'missing.pdf' : 'sheet.pdf'), chars: a.chars, lines: a.lines });
+    console.log(`${r.pdf}\n${r.howToWrite}\nthen: ${r.next}`);
+  },
+  async import(argv) {
+    const { values: a, positionals } = args(argv, { manifest: { type: 'string' }, 'no-build': { type: 'boolean' } });
+    if (positionals.length < 2 || !a.manifest) return console.log('usage: penclone import NAME WRITTEN.pdf --manifest SHEET.json');
+    console.log(C.importSamples({ profile: positionals[0], pdf: positionals[1], manifest: a.manifest, build: !a['no-build'] }));
+  },
+  async validate(argv) {
+    const r = C.validate({ profile: argv[0] });
+    console.log(JSON.stringify(r, null, 1));
+    console.error('\nOnly numbers relative to your own x-height - no strokes, images or text. If you like, paste them into a new issue:\n'
+      + 'https://github.com/migl06/penclone/issues/new?template=share_statistics.yml');
+  },
+  async report(argv) {
+    const { values: a, positionals } = args(argv, { sheet: { type: 'string' } });
+    console.log(C.glyphReport({ profile: positionals[0], sheet: a.sheet }));
+  },
+  async profile(argv) { C.python('pipeline/profiles.py', argv, { inherit: true }); },
+  async mcp() { (await import('../lib/mcp.js')).serve(); },
+  async help() { console.log(HELP); },
+};
 
 async function main(argv) {
   const [cmd, ...rest] = argv;
-  switch (cmd) {
-    case 'render': return cmdRender(rest);
-    case 'profile': return python('profiles.py', rest);
-    case 'sample-sheet': return python('make_sheet.py', rest);
-    case undefined: case 'help': case '-h': case '--help': console.log(HELP); return 0;
-    case '--version': case '-v': console.log(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version); return 0;
-    default: console.error(`unknown command: ${cmd}\n\n${HELP}`); return 2;
-  }
+  if (cmd === '--version' || cmd === '-v') return console.log(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version);
+  const f = commands[cmd ?? 'help'] ?? (['-h', '--help'].includes(cmd) ? commands.help : null);
+  if (!f) { console.error(`unknown command: ${cmd}\n\n${HELP}`); process.exitCode = 2; return; }
+  await f(rest);
 }
 
-main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (e) => {
+main(process.argv.slice(2)).catch((e) => {
   console.error('penclone:', e.message);
   process.exitCode = 1;
 });

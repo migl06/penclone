@@ -45,7 +45,7 @@ def line_baseline(items):
     return m, b
 
 
-def writer_stats(words, min_words=60):
+def writer_stats(words, min_words=60, min_x=15):
     """Return a dict of anonymous statistics, or None if the writer has too few usable words."""
     lines = {}
     for w in words:
@@ -62,7 +62,7 @@ def writer_stats(words, min_words=60):
             base = bl[0] * x + bl[1]
             raw.append((base - top, base - bot, t))
     xh = [h for h, _, t in raw if len(t) >= 2 and all(c in XH for c in t)]
-    if len(xh) < 15:
+    if len(xh) < min_x:
         return None
     X = float(np.median(xh))
     for h, below, t in raw:

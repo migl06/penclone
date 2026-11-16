@@ -10,7 +10,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'pipeline'))
-from make_sheet import build as sheet_build, pdf_bytes
+from make_sheet import build as sheet_build, pdf_bytes, char_lines
 from sentences_de import select
 from segment_v2 import segment
 from build_glyphs_v2 import build as build_glyphs
@@ -71,6 +71,23 @@ def main():
     pos = {g['pos'] for g in glyphs['e']}
     assert pos <= {'initial', 'medial', 'final', 'single'}
     print('variants of e:', len(glyphs['e']), 'positions', sorted(pos), '- OK')
+    chars_round_trip()
+
+
+def chars_round_trip():
+    """Character sheet: 'n§n n§n n§n' per line; the n give the x-height, the target character gets 3 variants."""
+    lines = char_lines('§@∧')
+    assert lines[2][1].startswith('n?n') and 'Logical And' in lines[2][1]
+    pages, man = sheet_build(lines, 'missing', 'chars')
+    assert man['sheet'] == 'chars' and [l['text'] for l in man['lines']] == ['n§n n§n n§n', 'n@n n@n n@n', 'n∧n n∧n n∧n']
+    occ, stats = segment(write(man), man)
+    assert stats['words_ok'] == 9, stats
+    glyphs, rep = build_glyphs(occ)
+    for c in '§@∧':
+        assert len(glyphs[c]) == 3, (c, len(glyphs.get(c, [])))
+        top = -min(p[1] for g in glyphs[c] for st in g['s'] for p in st)
+        assert abs(top - 0.42) < 0.05, (c, top)       # synthetic symbols are x-height tall
+    print('character sheet: 3 variants each for § @ ∧ at the right size - OK')
 
 
 if __name__ == '__main__':

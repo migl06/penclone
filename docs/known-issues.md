@@ -27,9 +27,10 @@ German version: [de/bekannte-probleme.md](de/bekannte-probleme.md).
    sheet v2** (`pipeline/measure_layout.py` → `layout.json` in the profile), see [research.md §13](research.md#13-line-habits-measured-from-the-writers-own-sample).
 4. **Deformation without a motor basis.** Two sine waves bend all strokes of a glyph alike. Research varies the movement
    (sigma-lognormal, ±15 % on µ and σ), which needs timestamps that PDF exports do not contain.
-5. **Strokes look digital.** Constant width; opacity varies per character instead of along the stroke; bold is a thicker line
-   instead of retracing.
-6. **Highlighter** is a rectangle with rounded corners instead of a marker stroke.
+5. **Strokes look digital** – *partly fixed* (P3): pens set colour, width and opacity; the iPad look varies the width along the
+   stroke (simulated pressure, tapered ends); pencil grain in SVG. Still open: ink model for ballpoints (darker where slow), pencil
+   grain in PDF, bold as retracing.
+6. **Highlighter** – not built yet in the new engine.
 
 ## C. Engineering
 
@@ -45,8 +46,9 @@ German version: [de/bekannte-probleme.md](de/bekannte-probleme.md).
 5. ~~**One global random stream.**~~ – **fixed** (P2): every decision has its own stream keyed by what it decides (word text and
    occurrence, line); editing a word leaves the other lines unchanged (tested).
 6. **Missing characters** – *partly fixed* (P2): typographic look-alikes (’ → ', — → –) and the base letter of accented letters
-   (é → e) are used and reported; anything else is left out and reported instead of falling back to a font. Still open: compose
-   new characters from existing strokes.
+   (é → e) are used and reported; anything else is left out and reported instead of falling back to a font. The AI asks the user
+   whether to write them on a small character sheet (`penclone sample-sheet --chars`), leave them out or replace them (P3). Still
+   open: compose new characters from existing strokes.
 7. **No measurement yet.** Parameters are set by eye; planned: OCR character error rate (legibility) and HWD (style similarity),
    see [research.md](research.md#8-measure-instead-of-guess).
 
@@ -57,7 +59,7 @@ German version: [de/bekannte-probleme.md](de/bekannte-probleme.md).
 | **P0** ✓ | A1, A2, A4, A6, A7 as general rules R1–R5; automatic row detection | done |
 | P1 | Sample sheet v2: given German sentences, mixed case, word positions; iPad capture page | fixes A3, A5, A8, B1, B2 at the root. **Done so far:** sheet generator, import and glyph build (`make_sheet.py`, `segment_v2.py`, `build_glyphs_v2.py`), tested with synthetic handwriting; **tested on one real sheet:** with a first glyph library as templates (`--templates`) 159 of 335 words aligned, lower-case letters mostly clean, i/Ä/ß still weak and the run takes ~100 s; **profile integration done** (`profiles.py add-sample`; `build` writes `glyphs-v2.json` next to the v1 glyphs; the new engine can use them with `--glyph-set v2|both`, default stays v1 until v2 is cleaner); **open:** iPad capture page, rules R3/R5 for v2, dot of the i, speed |
 | **P2** ✓ | DOM-free engine: own layout + hyphenation, line model measured from the sample, per-position seeds, one path per line; `penclone render` | C2–C5, B3 fixed, C6 partly |
-| P3 | Paper, pens, iPad output; CLI, MCP server and skill; worksheet filling | see [decisions.md](decisions.md) |
+| **P3** ✓ | Paper (built-in + own scans), pens, iPad output; CLI, MCP server and skill; worksheet filling; character sheets | [decisions.md §14](decisions.md#14-paper-pens-worksheets-mcp-server-and-skill-p3); open: detect-fields, `--pages`, highlighter, ink model |
 | P4 | Measure: OCR error rate, HWD, blind test | justify parameters, validate R5 |
-| P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | thresholds no longer an assumption |
-| P6 | **Packaging and user guide**: one npm package (CLI + MCP server; pipeline ported to TypeScript or shipped via pipx so users need no manual Python setup) + end-user guide (EN/DE) | install with one command |
+| P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | tool + issue form done; collecting answers open |
+| P6 | **Packaging and user guide**: one npm package (CLI + MCP server; pipeline ported to TypeScript or shipped via pipx so users need no manual Python setup) + end-user guide (EN/DE) | guide done; install from GitHub; open: npm release, Python without manual setup |

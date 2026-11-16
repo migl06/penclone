@@ -1,22 +1,23 @@
 # penclone
 
 **Text in deiner eigenen Handschrift – erzeugt aus deinen echten Stiftstrichen.**
-Deutsch zuerst (ä ö ü ß, „Anführungszeichen“, Silbentrennung), Englisch auch. Geplant als Kommandozeilen-Programm, MCP-Server
-und Agent Skill, die jeweils den ganzen Ablauf können.
+Deutsch zuerst (ä ö ü ß, „Anführungszeichen“, Silbentrennung), Englisch auch. Ein Werkzeug mit drei Zugängen: **Kommandozeile**,
+**MCP-Server** für KI-Apps (Claude, ChatGPT, Cursor, …) und **Agent Skill** – jeder kann den ganzen Ablauf.
 
-[English](README.md)
+[English](README.md) · [Anleitung](docs/de/anleitung.md)
 
 penclone nimmt ein paar Seiten deiner Handschrift (Vektor-Striche vom iPad / Apple Pencil), macht aus jedem Zeichen mehrere
 Varianten und schreibt damit neuen Text. Anders als bei Handschrift-Schriftarten sieht derselbe Buchstabe nie zweimal gleich aus:
-Varianten werden zufällig gewählt, die Grundlinie wandert, der Druck ändert sich, Buchstaben werden nach ihrer tatsächlichen Tinte
-gesetzt, damit sie sich nie berühren, und Kästen und Kreise sind von Hand gezeichnet.
+Varianten werden zufällig gewählt, die Grundlinie wandert wie bei dir, der Druck ändert sich, und Buchstaben werden nach ihrer
+tatsächlichen Tinte gesetzt, damit sie sich nie berühren.
 
-Gedacht für: Lernzettel, Briefe und Karten, Mockups, eine eigene Handschrift-Schriftart.
+Gedacht für: Lernzettel, Briefe und Karten, Antworten auf Arbeitsblättern, Mockups.
 
-> **Stand: früh.** Funktioniert: Glyphen-Pipeline, Handschrift-Profile, Qualitätsbericht und `penclone render`, das Text in deiner
-> Schrift als PDF oder SVG schreibt, ohne Browser (Layout, deutsche Silbentrennung, Zeilenmodell aus deinen Proben gemessen).
-> Geplant: MCP-Server, Skill, Papier- und Stiftstile, iPad-Ausgabe. Probleme und Plan:
-> [docs/de/bekannte-probleme.md](docs/de/bekannte-probleme.md), [docs/de/entscheidungen.md](docs/de/entscheidungen.md).
+> **Stand: früh, aber benutzbar.** Funktioniert: Handschrift-Profile, Probeblätter (ganz oder nur fehlende Zeichen), Layout mit
+> deutscher Silbentrennung und einem aus deinen Proben gemessenen Zeilenmodell, Papier (liniert, kariert, punktiert, deutsche
+> Lineaturen, dein eigenes eingescanntes Papier), Stifte und iPad-Look, Arbeitsblätter, PDF / SVG / PNG und bearbeitbare Tinte
+> (Xournal++, InkML, Excalidraw), MCP-Server, Skill. Noch nicht: iPad-Aufnahmeseite, Lesbarkeit messen (OCR), npm-Veröffentlichung.
+> Details: [docs/de/bekannte-probleme.md](docs/de/bekannte-probleme.md), [docs/de/entscheidungen.md](docs/de/entscheidungen.md).
 
 ## Auf Forschung gebaut, nicht geraten
 
@@ -41,62 +42,82 @@ Annahme markiert ([Belege statt Raten](docs/de/entscheidungen.md#5-belege-statt-
 
 Vollständige Liste mit Links und wie tief jede Quelle gelesen wurde: [docs/de/recherche.md](docs/de/recherche.md).
 
-## Handschrift-Profile (funktioniert)
+## Installieren
 
-Deine Handschrift wird unter einem Namen gespeichert und wiederverwendet. Profile liegen **außerhalb des Repos**
-(`~/.local/share/penclone/profiles/<name>/`) und überstehen Updates und neues Herunterladen.
+Braucht Node.js ≥ 20, Python 3 mit `numpy scipy pillow` (`pip install -r pipeline/requirements.txt`) und poppler
+(`pdftocairo`, `pdftoppm`; z. B. `apt install poppler-utils`, `brew install poppler`).
 
 ```bash
-python3 pipeline/profiles.py create ich --pdf meine_proben.pdf --lang de   # Proben importieren
-python3 pipeline/profiles.py build ich                                    # Glyphen-Bibliothek bauen
-python3 tools/glyph_report.py --profile ich --sheet bogen.png             # Qualitätsbericht
-python3 pipeline/profiles.py export ich ich.zip                           # Sicherung / anderer Rechner
+npm install -g github:migl06/penclone      # oder: git clone … && node bin/penclone.js
+penclone status                             # was da ist und was als Nächstes zu tun ist
+```
+
+## Drei Zugänge
+
+**Was ist penclone – CLI, MCP-Server oder Skill?** Alles drei, über dieselben Funktionen (`lib/commands.js`), damit keiner mehr
+kann als die anderen ([warum](docs/de/entscheidungen.md#2-cli-mcp-server-oder-skill)):
+
+| Zugang | Für | Start |
+|---|---|---|
+| Kommandozeile | dich, Skripte | `penclone help` |
+| MCP-Server | KI-Apps: Die KI ruft penclones Werkzeuge auf (schreiben, Arbeitsblatt ausfüllen, Papier aus einem Scan anlegen, …) und bekommt Vorschaubilder zurück | `claude mcp add penclone -- penclone mcp` · Claude Desktop: `{"mcpServers": {"penclone": {"command": "penclone", "args": ["mcp"]}}}` |
+| Agent Skill | KI-Agenten, die Befehle auf deinem Rechner ausführen | `skill/penclone/` in den Skill-Ordner des Agenten kopieren |
+
+Mit einer KI-App sagst du einfach „schreib diese Notizen in meiner Handschrift auf liniertes Papier“ oder gibst ihr den Scan eines
+Arbeitsblatts; die KI entscheidet, was wohin kommt, penclone vermisst die Seite und passt die Schrift ein. Fehlen Zeichen in deiner
+Schrift, fragt die KI dich, ob du sie jetzt schreiben willst (ein kleines Blatt nur mit diesen Zeichen), sie weglassen oder ersetzen.
+
+## Handschrift-Profile
+
+Deine Schrift wird unter einem Namen gespeichert und wiederverwendet. Profile liegen **außerhalb des Repositorys**
+(`~/.local/share/penclone/profiles/<name>/`) und überstehen Updates und Neu-Downloads.
+
+```bash
+penclone profile create ich
+penclone sample-sheet --out sheet.pdf                   # ausdrucken oder in einer Notiz-App auf dem iPad schreiben (~30 Min.)
+penclone import ich geschrieben.pdf --manifest sheet.json   # Striche → Glyphen, misst Wortabstände und Zeilen-Drift
+penclone sample-sheet --chars "§@" --out fehlend.pdf    # später: nur fehlende Zeichen
+penclone report ich --sheet glyphen.png                 # Qualitätsbericht
+penclone profile export ich ich.zip                     # Sicherung / anderer Rechner
 ```
 
 penclone wird besser durch **mehr Proben** (mehr Varianten, bessere Proportionen) und durch **allgemeine Regeln**, die für alle gleich
-sind und in der Pipeline stecken ([docs/de/regeln.md](docs/de/regeln.md)) – z. B. Zeichen bleiben wie geschrieben, Umlaute bekommen die
-Größe ihrer Grundbuchstaben, eine Variante, die wie ein anderer Buchstabe aussieht, wird übersprungen. Nutzer können diese Regeln
-nicht ändern; persönliche Ausnahmen gibt es nur als letzten Ausweg, normalerweise sind sie leer. Es wird kein neuronales Netz
-trainiert.
+und in die Pipeline eingebaut sind ([docs/de/regeln.md](docs/de/regeln.md)). Nutzer können diese Regeln nicht ändern; persönliche
+Ausnahmen gibt es nur als letzten Ausweg. Es wird kein neuronales Netz trainiert.
 
 **Deine Schrift beibringen:** die vorgegebenen Probesätze schreiben – keinen freien Text, keine Alphabet-Reihen –, normal und in
-normalem Tempo, etwa 2–4 Seiten ([warum](docs/de/entscheidungen.md#7-penclone-deine-schrift-beibringen-vorgegebene-sätze)).
+normalem Tempo ([warum](docs/de/entscheidungen.md#7-penclone-deine-schrift-beibringen-vorgegebene-sätze)).
 
-## Text schreiben (funktioniert)
+## Schreiben
 
 ```bash
-penclone render notizen.txt --profile ich -o notizen.pdf            # oder: node bin/penclone.js render …
-penclone render notizen.txt --profile ich --page a5 --margin 12 --size 2.5mm --line-spacing 7.1mm -o notizen.svg
-echo "Hallo Welt" | penclone render - --profile ich -o hallo.pdf
+penclone render notizen.txt -o notizen.pdf                                 # deine Voreinstellungen, sonst blanko, Kuli
+penclone render notizen.txt --paper lin27 --pen fineliner -o notizen.pdf   # Lineatur 27, schwarzer Fineliner
+penclone render notizen.txt --output ipad --paper dotted -o notizen.pdf    # digitale Tinte wie in einer Notiz-App
+penclone render notizen.txt -o notizen.xopp                                # bearbeitbare Striche in Xournal++
+penclone template add block --profile ich --from leere_seite.jpg           # eigenes Papier, aus einem Scan vermessen
+penclone fill arbeitsblatt.pdf --fields felder.json -o ausgefuellt.pdf     # Antworten in Kästen eingepasst, Bericht pro Feld
+penclone prefs ich output=paper paper=lined pen=ballpoint                  # gemerkte Standardwerte
 ```
 
-Jeder Zeilenumbruch im Text beginnt eine neue Zeile; eine leere Zeile bleibt leer. penclone meldet Zeichen, die in deinen Proben
-fehlen (sie werden weggelassen, nie durch eine Schriftart ersetzt), und Doppelgänger, die es stattdessen genommen hat (’ → ').
-Derselbe `--seed` gibt dasselbe Ergebnis, und ein geändertes Wort lässt die anderen Zeilen gleich. Wortabstände, Drift der
-Grundlinie, Schräge und die Standardgröße kommen aus deinem Probeblatt v2, wenn das Profil eins hat; sonst sind die Standardwerte
-als Annahme markiert ([Details](docs/de/entscheidungen.md#13-die-engine-ohne-browser-p2)).
-
-## Alles einstellbar (teils geplant)
-
-Schon jetzt: `--page`, `--margin`, `--size`, `--line-spacing`, `--color`, `--seed`, `--lang`, `--no-hyphenation`, Ausgabe `.pdf`
-und `.svg`. Geplant:
+Jeder Zeilenumbruch im Text beginnt eine neue Zeile. Die Schrift steht auf den Linien von liniertem, kariertem und punktiertem
+Papier; auf Karopapier wird jede zweite Linie benutzt, wenn die Kästchen kleiner als deine Zeilenhöhe sind. Fehlende Zeichen werden
+weggelassen und gemeldet – nie durch eine Schriftart ersetzt. Derselbe `--seed` gibt dasselbe Ergebnis, und ein geändertes Wort lässt
+die anderen Zeilen gleich.
 
 | Option | Werte |
 |---|---|
-| `--output` | `paper` (Stift auf Papier simuliert) · `ipad` (saubere digitale Tinte) |
-| `--pen` | `ballpoint` (Kuli), `pencil` (Bleistift), `fineliner`, `gel`, `fountain` (Füller), `highlighter` (iPad: `pen`, `pencil`, `highlighter`) |
-| `--paper` | `blank`, `lined` (liniert), `squared` (kariert), `dotted` (punktiert); Vorlagen `lin22`, `lin26`, `lin27`, `lin28`; oder dein eigener Scan/PDF |
-| `--line-spacing`, `--grid`, `--margin`, `--page` | Maße in mm, Seite `a4`/`a5`/`letter`/eigene |
-| `--size` | x-Höhe in mm oder `auto` = deine eigene Größe relativ zur Linie, gemessen an deinen Proben |
-| `--color`, `--width`, `--pages` | Tintenfarbe, Strichbreite, auf N Seiten einpassen |
-| `--format` | `pdf`, `svg`, `png` und bearbeitbare Tinte: `xopp` (Xournal++), `excalidraw`, `inkml` |
+| `--paper` | `blank`, `lined`, `lined-narrow` / `-college` / `-wide` (US), `lin27`, `squared`, `lin22`, `lin26`, `lin28`, `dotted`, deine Vorlage oder eine Scan-Datei |
+| `--output`, `--pen` | `paper`: `ballpoint` (Kuli), `fineliner`, `gel`, `fountain` (Füller), `pencil` (Bleistift) · `ipad`: `pen`, `pencil` |
+| `--color`, `--size`, `--line-spacing`, `--grid`, `--margin`, `--page` | Farbe; x-Höhe, Abstände in mm; Seite `a4`/`a5`/`letter`/`BxH` |
+| Ausgabedatei | `.pdf`, `.svg`, `.png` und bearbeitbare Tinte: `.xopp` (Xournal++), `.inkml`, `.excalidraw` |
 
-**Eingescannte Seiten und Arbeitsblätter (geplant):** Die KI (oder du) sagt mit einem groben Kasten, was wohin kommt; penclone misst den
-Platz, passt deine Schrift ein und meldet, wenn etwas nicht passt
-([warum](docs/de/entscheidungen.md#9-eingescannte-seiten-und-arbeitsblätter-die-ki-sagt-was-wohin-penclone-passt-es-ein)).
+**Arbeitsblätter und eingescannte Seiten:** Die KI (oder du) gibt jeder Antwort einen groben Kasten; penclone richtet den Scan
+gerade, findet gedruckte Antwortlinien im Kasten, passt den Text ein (kleiner wenn nötig, nie unlesbar klein) und meldet, was nicht
+passt ([warum](docs/de/entscheidungen.md#9-eingescannte-seiten-und-arbeitsblätter-die-ki-sagt-was-wohin-penclone-passt-es-ein)).
 
-GoodNotes/Notability: PDF (oder PNG-Zeilen) importieren und darüber schreiben; die erzeugten Striche selbst lassen sich dort nicht
-bearbeitbar machen, weil das Format geschlossen ist ([Details](docs/de/entscheidungen.md#bearbeitbar-auf-dem-ipad-goodnotes)).
+GoodNotes/Notability: PDF importieren und darüber schreiben; die erzeugten Striche lassen sich dort nicht bearbeitbar machen, weil
+das Format geschlossen ist ([Details](docs/de/entscheidungen.md#bearbeitbar-auf-dem-ipad-goodnotes)).
 
 ## Datenschutz
 

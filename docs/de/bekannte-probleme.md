@@ -28,9 +28,10 @@ English version: [../known-issues.md](../known-issues.md).
    [recherche.md §13](recherche.md#13-zeilen-gewohnheiten-aus-der-eigenen-probe-gemessen).
 4. **Verformung ohne motorische Grundlage.** Zwei Sinuswellen verbiegen alle Striche eines Zeichens gleich. Die Forschung variiert
    die Bewegung (Sigma-Lognormal, ±15 % auf µ und σ) – dafür braucht es Zeitstempel, die PDF-Exporte nicht haben.
-5. **Strichbild wirkt digital.** Konstante Breite; Deckkraft schwankt pro Zeichen statt entlang des Strichs; fett ist eine dickere
-   Linie statt Nachziehen.
-6. **Textmarker** ist ein Rechteck mit runden Ecken statt eines Markerstrichs.
+5. **Strichbild wirkt digital** – *teilweise behoben* (P3): Stifte legen Farbe, Breite und Deckkraft fest; der iPad-Look ändert die
+   Breite entlang des Strichs (simulierter Druck, spitze Enden); Bleistift-Körnung im SVG. Noch offen: Tintenmodell für Kulis
+   (dunkler wo langsam), Bleistift-Körnung im PDF, fett als Nachziehen.
+6. **Textmarker** – in der neuen Engine noch nicht gebaut.
 
 ## C. Technik
 
@@ -47,7 +48,8 @@ English version: [../known-issues.md](../known-issues.md).
    entscheidet (Wort und wievieltes Vorkommen, Zeile); ein geändertes Wort lässt die anderen Zeilen gleich (getestet).
 6. **Fehlende Zeichen** – *teilweise behoben* (P2): typografische Doppelgänger (’ → ', — → –) und der Grundbuchstabe bei Akzenten
    (é → e) werden benutzt und gemeldet; alles andere wird weggelassen und gemeldet, statt auf eine Schriftart zurückzufallen.
-   Noch offen: neue Zeichen aus vorhandenen Strichen zusammensetzen.
+   Die KI fragt, ob du sie auf einem kleinen Zeichenblatt schreiben (`penclone sample-sheet --chars`), weglassen oder ersetzen
+   willst (P3). Noch offen: neue Zeichen aus vorhandenen Strichen zusammensetzen.
 7. **Noch keine Messung.** Parameter nach Augenmaß; geplant: OCR-Zeichenfehlerrate (Lesbarkeit) und HWD (Stil-Ähnlichkeit),
    siehe [recherche.md](recherche.md#8-messen-statt-raten).
 
@@ -58,7 +60,7 @@ English version: [../known-issues.md](../known-issues.md).
 | **P0** ✓ | A1, A2, A4, A6, A7 als allgemeine Regeln R1–R5; automatische Zeilenerkennung | erledigt |
 | P1 | Probeblatt v2: vorgegebene deutsche Sätze, Groß/klein gemischt, Wortpositionen; iPad-Aufnahmeseite | behebt A3, A5, A8, B1, B2 an der Wurzel. **Bisher fertig:** Blatt-Generator, Import und Glyphen-Bau (`make_sheet.py`, `segment_v2.py`, `build_glyphs_v2.py`), getestet mit synthetischer Handschrift; **an einem echten Blatt getestet:** mit einer ersten Glyphenbibliothek als Vorlage (`--templates`) 159 von 335 Wörtern zugeordnet, Kleinbuchstaben meist sauber, i/Ä/ß noch schwach, Laufzeit ca. 100 s; **Profil-Anbindung fertig** (`profiles.py add-sample`, `build` erzeugt `glyphs-v2.json` neben den v1-Glyphen; die neue Engine nutzt sie mit `--glyph-set v2|both`, Standard bleibt v1, bis v2 sauberer ist); **offen:** iPad-Aufnahmeseite, Regeln R3/R5 für v2, i-Punkt, Geschwindigkeit |
 | **P2** ✓ | Engine ohne DOM: eigenes Layout + Silbentrennung, Zeilenmodell aus der Probe gemessen, Seeds pro Stelle, ein Pfad pro Zeile; `penclone render` | C2–C5, B3 behoben, C6 teilweise |
-| P3 | Papier, Stifte, iPad-Ausgabe; CLI, MCP-Server und Skill; Arbeitsblätter ausfüllen | siehe [entscheidungen.md](entscheidungen.md) |
+| **P3** ✓ | Papier (eingebaut + eigene Scans), Stifte, iPad-Ausgabe; CLI, MCP-Server und Skill; Arbeitsblätter ausfüllen; Zeichenblätter | [entscheidungen.md §14](entscheidungen.md#14-papier-stifte-arbeitsblätter-mcp-server-und-skill-p3); offen: detect-fields, `--pages`, Textmarker, Tintenmodell |
 | P4 | Messen: OCR-Fehlerrate, HWD, Blindtest | Parameter begründen, R5 bestätigen |
-| P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Schwellen keine Annahme mehr |
-| P6 | **Paket und Anleitung**: ein npm-Paket (CLI + MCP-Server; Pipeline nach TypeScript portiert oder per pipx mitgeliefert, damit niemand Python von Hand einrichten muss) + Endnutzer-Anleitung (DE/EN) | Installation mit einem Befehl |
+| P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Werkzeug + Issue-Formular fertig; Antworten sammeln offen |
+| P6 | **Paket und Anleitung**: ein npm-Paket (CLI + MCP-Server; Pipeline nach TypeScript portiert oder per pipx mitgeliefert, damit niemand Python von Hand einrichten muss) + Endnutzer-Anleitung (DE/EN) | Anleitung fertig; Installation von GitHub; offen: npm-Veröffentlichung, Python ohne Handarbeit |
