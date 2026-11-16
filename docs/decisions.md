@@ -296,11 +296,14 @@ Built-in templates (in the repository, the same for everyone; every value can be
 Your own templates (stored in your profile, never in the repository):
 
 ```
-penclone template add my-pad --from empty_page_scan.pdf     # measures line spacing, grid and margins from a scan of an empty page
+penclone template add my-pad --from empty_page_scan.pdf     # penclone measures line spacing, grid and margins automatically
 penclone template add my-pad --type lined --line-spacing 7mm --margin-left 20mm
 ```
 
-With `--from`, penclone detects the lines (Hough transform) and can keep the scan as background for a real paper look.
+Nobody measures by hand. With `--from`, penclone detects the lines (Hough transform) and can keep the scan as background for a
+real paper look. penclone measures rather than the AI because small errors add up: a spacing estimated as 7.0 mm instead of
+7.1 mm puts line 30 already 3 mm off the rule, and vision-language models are unreliable with exact geometry (Rahmanzadehgervi
+et al., ACCV 2024). The AI's part is to ask which paper you want and to show the choices.
 
 How the paper is chosen (first match wins):
 

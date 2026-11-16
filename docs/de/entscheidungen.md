@@ -296,11 +296,14 @@ Eingebaute Vorlagen (im Repo, für alle gleich; jeder Wert lässt sich überschr
 Eigene Vorlagen (in deinem Profil, nie im Repo):
 
 ```
-penclone template add mein-block --from leere_seite_scan.pdf    # misst Zeilenabstand, Raster und Ränder aus dem Scan einer leeren Seite
+penclone template add mein-block --from leere_seite_scan.pdf    # penclone misst Zeilenabstand, Raster und Ränder automatisch
 penclone template add mein-block --type lined --line-spacing 7mm --margin-left 20mm
 ```
 
-Mit `--from` erkennt penclone die Linien (Hough-Transformation) und kann den Scan als Hintergrund behalten – für echten Papier-Look.
+Niemand misst von Hand. Mit `--from` erkennt penclone die Linien (Hough-Transformation) und kann den Scan als Hintergrund behalten –
+für echten Papier-Look. penclone misst statt der KI, weil sich kleine Fehler aufaddieren: ein auf 7,0 statt 7,1 mm geschätzter
+Abstand liegt in Zeile 30 schon 3 mm neben der Linie, und Bild-Sprach-Modelle sind bei genauer Geometrie unzuverlässig
+(Rahmanzadehgervi et al., ACCV 2024). Die Aufgabe der KI ist, zu fragen, welches Papier du willst, und die Auswahl zu zeigen.
 
 Wie das Papier gewählt wird (das erste Zutreffende gilt):
 
