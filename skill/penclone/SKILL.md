@@ -40,7 +40,7 @@ user cares.
 ## 3. Write text
 
 ```bash
-penclone render notes.txt --profile NAME -o notes.pdf --json
+penclone render notes.txt -o notes.pdf --json      # the active handwriting; --profile NAME only for another one
 ```
 
 Every line break starts a new line. Options: [references/options.md](references/options.md). Show the result (open the

@@ -26,6 +26,7 @@ Handwriting:
   penclone import NAME WRITTEN.pdf --manifest F.json   add a written sheet to a profile and build it
   penclone capture NAME [--chars C]         write the sample sheet in Safari on the iPad (time, pressure, tilt recorded)
   penclone profile create|list|show|build|export|import|override|block ...   manage profiles
+  penclone use [NAME]                       switch the active handwriting (stays until switched again); no NAME: show
   penclone report NAME [--sheet out.png]    quality report of the glyphs
   penclone validate NAME                    anonymous numbers to help check the general rules (nothing is sent)
 
@@ -39,7 +40,7 @@ AI apps:
   penclone mcp                              MCP server on stdin/stdout (for Claude, ChatGPT, Cursor, ...)
 
 Options of render and fill:
-  --profile NAME          handwriting profile (or --glyphs FILE [--layout FILE])
+  --profile NAME          another handwriting just this once (default: the active one, see penclone use)
   -o, --out FILE          .pdf .svg .png .xopp .inkml .excalidraw (default: input name with .pdf)
   --text TEXT             text to write instead of a file
   --paper P               ${Object.keys(PAPERS).join(', ')}, an own template, or a scan file
@@ -197,6 +198,13 @@ const commands = {
     console.log(C.glyphReport({ profile: positionals[0], sheet: a.sheet }));
   },
   async profile(argv) { C.python('pipeline/profiles.py', argv, { inherit: true }); },
+  async use(argv) {
+    const r = C.useProfile({ name: argv[0] });
+    if (!r.profiles.length) return console.log('no handwriting profile yet - run: penclone status');
+    for (const n of r.profiles) console.log(`${n === r.active ? '*' : ' '} ${n}`);
+    if (!r.active) console.log('no active handwriting yet: penclone use NAME');
+    else if (argv[0]) console.log(`active handwriting: ${r.active} (used whenever --profile is not given)`);
+  },
   async mcp() { (await import('../lib/mcp.js')).serve(); },
   async help() { console.log(HELP); },
 };

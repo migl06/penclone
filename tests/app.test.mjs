@@ -186,3 +186,29 @@ test('fit to N pages: smaller writing, never more pages than asked', async () =>
   assert.ok(two.fitted.xHeightMm < two.fitted.natural);
   await assert.rejects(C.render({ text: text.repeat(40), out: join(HOME, 'p3.pdf'), page: 'a5', pages: 1 }), /does not fit/);
 });
+
+test('several handwritings: switch the active one, it stays until switched again', async () => {
+  const d2 = join(HOME, 'profiles', 'zweite');
+  mkdirSync(d2, { recursive: true });
+  writeFileSync(join(d2, 'profile.json'), JSON.stringify({ name: 'zweite', version: 1, languages: ['de'], sources: [{ id: 'alphabet-v1', sheet: 'alphabet-v1' }], overrides: {} }));
+  writeFileSync(join(d2, 'glyphs.json'), JSON.stringify(glyphs()));
+  try {
+    // two profiles and none chosen: render asks for a choice once, status says how
+    assert.equal(C.useProfile().active, null);
+    await assert.rejects(C.render({ text: 'Hallo', out: join(HOME, 'x.svg') }), /penclone use NAME/);
+    assert.equal(C.status().next.id, 'choose-profile');
+    // choose one: it is used from now on without --profile
+    assert.equal(C.useProfile({ name: 'zweite' }).active, 'zweite');
+    assert.equal(C.status().profile, 'zweite');
+    assert.ok((await C.render({ text: 'Hallo', out: join(HOME, 'x.svg') })).files.length);
+    assert.deepEqual(C.listProfiles().filter((p) => p.active).map((p) => p.name), ['zweite']);
+    // --profile is a one-off; the active one stays
+    assert.equal(C.status({ profile: 'demo' }).profile, 'demo');
+    assert.equal(C.useProfile().active, 'zweite');
+    assert.equal(C.useProfile({ name: 'demo' }).active, 'demo');
+    assert.throws(() => C.useProfile({ name: 'gibtsnicht' }), /profile not found/);
+  } finally {
+    rmSync(d2, { recursive: true, force: true });
+    rmSync(join(HOME, 'config.json'), { force: true });
+  }
+});

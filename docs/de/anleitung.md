@@ -75,6 +75,17 @@ penclone init                                   # fragt Sprache, Ausgabe und Pap
 penclone prefs ich paper=lined pen=fineliner    # jederzeit änderbar; "paper=" löscht einen Wert
 ```
 
+Mehrere Handschriften (z. B. deine Schön- und deine Alltagsschrift, oder je ein Profil für jede Person, die penclone auf
+diesem Rechner mit ihrer eigenen Schrift nutzt): leg für jede ein eigenes Profil an. Eine davon ist aktiv und wird immer benutzt, ohne dass du gefragt wirst. Gewechselt wird nur, wenn du es sagst:
+
+```bash
+penclone use                       # zeigt alle Handschriften, * = aktiv
+penclone use schoenschrift         # ab jetzt diese, bis du wieder wechselst
+penclone render brief.txt --profile alltag -o brief.pdf   # nur dieses eine Mal eine andere
+```
+
+In einer KI-App reicht: „schreib ab jetzt mit meiner Schönschrift“.
+
 ## 4. Fehlende Zeichen
 
 Hast du ein Zeichen nie geschrieben (z. B. `§`), lässt penclone es weg und sagt dir das. Eine Schriftart als Ersatz gibt es nicht.

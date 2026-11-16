@@ -55,6 +55,18 @@ penclone init                                                             # asks
 penclone prefs me paper=lined pen=fineliner                               # change any time; "paper=" clears one
 ```
 
+Several handwritings (your neat and your everyday writing, or one profile for each person who uses penclone on this
+computer with their own writing): make one profile for each. One of them is
+active and is used without asking; it changes only when you say so:
+
+```bash
+penclone use                       # all handwritings, * = active
+penclone use neat                  # from now on this one, until you switch again
+penclone render letter.txt --profile everyday -o letter.pdf   # another one just this once
+```
+
+In an AI app: "use my neat handwriting from now on".
+
 Every line break in the text is a line break on the paper. Long words are split at the end of a line only when a large gap would
 be left otherwise. `--seed 2` gives another version of the same text.
 
