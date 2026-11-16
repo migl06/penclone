@@ -6,7 +6,7 @@ Deutsch zuerst (ä ö ü ß, „Anführungszeichen“, Silbentrennung), Englisch
 
 [English](README.md) · [Anleitung](docs/de/anleitung.md)
 
-penclone nimmt ein paar Seiten deiner Handschrift (Vektor-Striche vom iPad / Apple Pencil), macht aus jedem Zeichen mehrere
+penclone nimmt ein paar Seiten deiner Handschrift (Vektor-Striche, mit dem Stift auf einem Tablet geschrieben: iPad, Android-Tablet, Surface, …), macht aus jedem Zeichen mehrere
 Varianten und schreibt damit neuen Text. Anders als bei Handschrift-Schriftarten sieht derselbe Buchstabe nie zweimal gleich aus:
 Varianten werden zufällig gewählt, die Grundlinie wandert wie bei dir, der Druck ändert sich, und Buchstaben werden nach ihrer
 tatsächlichen Tinte gesetzt, damit sie sich nie berühren.
@@ -78,8 +78,8 @@ Deine Schrift wird unter einem Namen gespeichert und wiederverwendet. Profile li
 
 ```bash
 penclone profile create ich
-penclone sample-sheet --out sheet.pdf                   # in einer Notiz-App auf dem iPad schreiben, als PDF exportieren (~30 Min.)
-penclone capture ich                                    # oder: direkt in Safari auf dem iPad schreiben (mit Zeit und Druck)
+penclone sample-sheet --out sheet.pdf                   # in einer Notiz-App auf dem Tablet schreiben, als PDF exportieren (~30 Min.)
+penclone capture ich                                    # oder: direkt im Browser des Tablets schreiben (mit Zeit und Druck)
 penclone import ich geschrieben.pdf --manifest sheet.json   # Striche → Glyphen, misst Wortabstände und Zeilen-Drift
 penclone sample-sheet --chars "§@" --out fehlend.pdf    # später: nur fehlende Zeichen
 penclone report ich --sheet glyphen.png                 # Qualitätsbericht

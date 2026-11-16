@@ -21,7 +21,7 @@ import harness as H  # noqa: E402
 import iam  # noqa: E402
 from run_experiments import CONDITIONS, c2st_words, hwd, hwd_sets  # noqa: E402
 
-CONDS = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7']
+CONDS = ['A1', 'A3', 'A4', 'A6', 'B3', 'B6', 'B8', 'B9']   # ladder of the realism study on further writers
 IDX = None
 
 

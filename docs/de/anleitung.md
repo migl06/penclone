@@ -30,11 +30,12 @@ penclone sample-sheet --out sheet.pdf
 **Druckschrift** (Buchstaben einzeln; wo du sonst zwei Buchstaben verbindest, verbinde sie auch hier). Für Schreibschrift ist
 penclone nicht gedacht.
 
-- **Am iPad (empfohlen):** Öffne `sheet.pdf` in GoodNotes, Notability o. ä. und schreib mit dem Apple Pencil. Exportiere die Seiten
-  danach als PDF. Die Striche bleiben dabei Vektoren, das gibt das sauberste Ergebnis.
-- **Direkt im Browser am iPad:** `penclone capture ich` zeigt einen Link. Öffne ihn in Safari auf dem iPad (gleiches WLAN) und
-  schreib die Sätze mit dem Pencil. Mit dem Finger scrollst du, am Ende tippst du „Fertig“. penclone liest alles sofort ein und
-  speichert auch Zeit und Druck.
+- **Am Tablet mit Stift (empfohlen)** – iPad mit Apple Pencil, Android-Tablet, Surface, …: Öffne `sheet.pdf` in einer
+  Notiz-App (GoodNotes, Notability, Xournal++ o. ä.), schreib mit dem Stift und exportiere die Seiten danach als PDF. Die App
+  muss die Striche dabei als Vektor-Linien exportieren, das gibt das sauberste Ergebnis.
+- **Direkt im Browser des Tablets:** `penclone capture ich` zeigt einen Link. Öffne ihn im Browser auf dem Tablet (gleiches
+  WLAN) und schreib die Sätze mit dem Stift. Mit dem Finger scrollst du, am Ende tippst du „Fertig“. penclone liest alles
+  sofort ein und speichert auch Zeit und Druck.
 - **Noch nicht möglich:** auf Papier schreiben und einscannen. penclone braucht die Striche als Vektoren, ein Scan ist nur ein
   Bild. (Eingescanntes *leeres* Papier als Vorlage geht dagegen, siehe 5.)
 

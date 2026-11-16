@@ -145,12 +145,12 @@ test('MCP server: handshake, tools, a call, errors', async () => {
   assert.equal(Object.keys(res).length, 5);           // no answer to the notification
 });
 
-test('iPad capture page: secret link, rejects bad uploads, imports a written character sheet', { skip: !hasPython && 'needs Python with numpy' }, async () => {
+test('capture page: secret link, rejects bad uploads, imports a written character sheet', { skip: !hasPython && 'needs Python with numpy' }, async () => {
   const { startCapture } = await import('../lib/capture.js');
   const c = await startCapture({ profile: 'demo', chars: '§', port: 0, host: '127.0.0.1' });
   try {
     assert.match(c.url, /^http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{32}\/$/);
-    assert.match(await (await fetch(c.url)).text(), /Apple Pencil/);
+    assert.match(await (await fetch(c.url)).text(), /mit dem Stift/);
     assert.equal((await fetch(c.url.replace(/[0-9a-f]{32}/, '0'.repeat(32)))).status, 404);
     const man = await (await fetch(c.url + 'sheet.json')).json();
     assert.deepEqual(man.lines.map((l) => l.text), ['n§n n§n n§n']);

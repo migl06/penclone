@@ -25,10 +25,11 @@ penclone sample-sheet --out sheet.pdf
 `sheet.pdf` contains given sentences, each with a ruled line below. Write them in your normal **print** handwriting
 (letters one by one; where you usually join two letters, join them). penclone is not made for cursive.
 
-- **On an iPad (recommended):** open the PDF in GoodNotes, Notability or similar, write with the Apple Pencil and export the
-  pages as PDF (the strokes stay vectors, which gives the cleanest result).
-- **Directly in the browser on the iPad:** `penclone capture me` prints a link; open it in Safari on the iPad (same Wi-Fi),
-  write with the Pencil (the finger scrolls), tap “Fertig” – the strokes are imported at once, with time and pressure.
+- **On a tablet with a pen (recommended)** – iPad with Apple Pencil, Android tablet, Surface, …: open the PDF in a notes app
+  (GoodNotes, Notability, Xournal++ or similar), write with the pen and export the pages as PDF. The app must keep the strokes
+  as vector lines in the export; that gives the cleanest result.
+- **Directly in the tablet's browser:** `penclone capture me` prints a link; open it in the browser on the tablet (same Wi-Fi),
+  write with the pen (the finger scrolls), tap “Fertig” – the strokes are imported at once, with time and pressure.
 - **Not possible yet:** writing on paper and scanning it – penclone needs the strokes as vectors; a scan is only an image.
   (A scan of *empty* paper as a template works, see 5.)
 

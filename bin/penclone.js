@@ -24,7 +24,7 @@ Write:
 Handwriting:
   penclone sample-sheet [--chars C] --out F.pdf   sheet to write by hand (all sentences, or only some characters)
   penclone import NAME WRITTEN.pdf --manifest F.json   add a written sheet to a profile and build it
-  penclone capture NAME [--chars C]         write the sample sheet in Safari on the iPad (time, pressure, tilt recorded)
+  penclone capture NAME [--chars C]         write the sample sheet in the browser of a tablet with a pen (time, pressure, tilt)
   penclone profile create|list|show|build|export|import|override|block ...   manage profiles
   penclone use [NAME]                       switch the active handwriting (stays until switched again); no NAME: show
   penclone report NAME [--sheet out.png]    quality report of the glyphs
@@ -181,7 +181,7 @@ const commands = {
     if (!positionals[0]) return console.log('usage: penclone capture NAME [--chars C] [--port 8765] [--host 0.0.0.0]');
     const { startCapture } = await import('../lib/capture.js');
     const c = await startCapture({ profile: positionals[0], chars: a.chars, port: a.port ? Number(a.port) : undefined, host: a.host });
-    console.log('Open this on the iPad (same Wi-Fi), in Safari, and write with the Apple Pencil:');
+    console.log('Open this in the browser of your tablet (same Wi-Fi) and write with the pen:');
     for (const u of c.urls) console.log('  ' + u);
     console.log('The page is reachable in your local network while this runs; the link contains a secret. Ctrl+C stops it.');
     const r = await c.done;

@@ -6,7 +6,7 @@ for AI apps (Claude, ChatGPT, Cursor, …) and an **Agent Skill** – each can d
 
 [Deutsch](README.de.md) · [User guide](docs/guide.md)
 
-penclone takes a few pages of your handwriting (vector strokes from an iPad / Apple Pencil), turns every character into a set of
+penclone takes a few pages of your handwriting (vector strokes written with a pen on a tablet: iPad, Android tablet, Surface, …), turns every character into a set of
 glyph variants and writes new text with them. Unlike handwriting fonts, the same letter never looks exactly the same twice:
 variants are picked at random, the baseline drifts like yours, pressure changes, and letters are spaced by their actual ink so
 they never touch.
@@ -78,8 +78,8 @@ Your handwriting is saved under a name and reused. Profiles live **outside the r
 
 ```bash
 penclone profile create me
-penclone sample-sheet --out sheet.pdf                  # write it in a notes app on the iPad, export as PDF (~30 min)
-penclone capture me                                    # or: write it directly in Safari on the iPad (records time and pressure)
+penclone sample-sheet --out sheet.pdf                  # write it in a notes app on a tablet, export as PDF (~30 min)
+penclone capture me                                    # or: write it in the tablet's browser (records time and pressure)
 penclone import me written.pdf --manifest sheet.json   # strokes → glyphs, measures your word gaps and line drift
 penclone sample-sheet --chars "§@" --out missing.pdf   # later: only characters that are missing
 penclone report me --sheet glyphs.png                  # quality report
@@ -128,7 +128,7 @@ closed ([details](docs/decisions.md#editable-on-the-ipad-goodnotes)).
 ## How it works
 
 ```
-samples (iPad PDF) ──► profile ──pipeline/──► glyphs.json + layout.json ──engine/──► PDF · SVG · PNG · xopp · InkML · Excalidraw
+samples (tablet) ──► profile ──pipeline/──► glyphs.json + layout.json ──engine/──► PDF · SVG · PNG · xopp · InkML · Excalidraw
                                                                    ▲
                                          lib/commands.js ── CLI (bin/penclone.js) · MCP server (lib/mcp.js) · skill
 ```
