@@ -1,0 +1,3 @@
+numpy
+scipy
+matplotlib  # only for tools/glyph_report.py --sheet

@@ -1,0 +1,19 @@
+# Personal handwriting data and personal scripts/notes never go into the repository
+local/
+samples/*
+!samples/README.md
+private/
+profiles/
+data/
+scans/
+*.zip
+*.pdf
+*.svg
+glyphs*.json
+*.png
+
+# Python / Node
+__pycache__/
+*.pyc
+.venv/
+node_modules/

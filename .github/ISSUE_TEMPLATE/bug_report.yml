@@ -1,0 +1,45 @@
+name: Bug report
+description: Something does not work or looks wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Please do not attach your handwriting samples, glyph files or profiles** – handwriting is
+        personal and issues are public. Text output (e.g. from `tools/glyph_report.py`) or small cropped screenshots are enough.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Commands you ran, with options.
+      placeholder: |
+        1. python3 pipeline/profiles.py build me
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output / error message
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Python and Node version, penclone commit (`git rev-parse --short HEAD`)
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This report contains no handwriting samples or data I do not want to be public.
+          required: true

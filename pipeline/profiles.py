@@ -1,0 +1,206 @@
+"""Handwriting profiles: your handwriting, saved under a name and reusable.
+
+A profile keeps everything penclone knows about one person's handwriting,
+outside the repository so it survives updates and re-downloads:
+
+    $PENCLONE_HOME/profiles/<name>/          (default: ~/.local/share/penclone)
+        profile.json        name, languages, sample sources, rules, change log
+        samples/<source>/   the sample PDF and its extracted pages (pg1.svg ...)
+        glyphs.json         glyph library built from the samples + rules
+
+How penclone improves:
+  1. more samples   -> more variants per character, better proportions
+  2. general rules  -> built into the pipeline, the same for everyone, documented
+                       in docs/rules.md and changed only through reviewed pull
+                       requests (users cannot change them)
+  3. overrides      -> optional personal exceptions in profile.json, normally
+                       empty; every change is logged with a reason
+
+Usage:
+    python3 profiles.py create NAME --pdf samples.pdf [--sheet alphabet-v1] [--lang de]
+    python3 profiles.py list
+    python3 profiles.py show NAME
+    # optional overrides (normally not needed):
+    python3 profiles.py override NAME clean-dots ';!' --why "..."
+    python3 profiles.py override NAME align-cap N --why "..."
+    python3 profiles.py block NAME k alphabet-v1:p3 --why "..."
+    python3 profiles.py unblock NAME k alphabet-v1:p3
+    python3 profiles.py build NAME                 # rebuild glyphs.json
+    python3 profiles.py export NAME out.zip        # backup / move to another computer
+    python3 profiles.py import in.zip
+"""
+import argparse
+import datetime
+import json
+import os
+import shutil
+import subprocess
+import sys
+import zipfile
+
+VERSION = 1
+SHEETS = {'alphabet-v1': 3}          # sample sheet type -> number of pages
+OVERRIDE_KEYS = {
+    'clean_dots': list,         # small marks of these chars become synthetic dots (default: marks stay as written)
+    'blocked': dict,            # char -> ["<source>:p<page>", ...] variants not to use
+    'align_cap_height': list,   # chars whose strokes each span baseline..cap height
+}
+
+
+def empty_overrides():
+    return {k: t() for k, t in OVERRIDE_KEYS.items()}
+
+
+def home():
+    base = os.environ.get('PENCLONE_HOME') or os.path.join(
+        os.environ.get('XDG_DATA_HOME') or os.path.expanduser('~/.local/share'), 'penclone')
+    return os.path.join(base, 'profiles')
+
+
+def path(name_or_dir):
+    if os.path.isdir(name_or_dir) and os.path.isfile(os.path.join(name_or_dir, 'profile.json')):
+        return os.path.abspath(name_or_dir)
+    return os.path.join(home(), name_or_dir)
+
+
+def load(name_or_dir):
+    d = path(name_or_dir)
+    fn = os.path.join(d, 'profile.json')
+    if not os.path.isfile(fn):
+        sys.exit(f'profile not found: {d} (create it with: profiles.py create NAME --pdf FILE)')
+    P = json.load(open(fn, encoding='utf-8'))
+    P['_dir'] = d
+    ov = empty_overrides()
+    ov.update({k: v for k, v in P.get('overrides', {}).items() if k in OVERRIDE_KEYS})
+    P['overrides'] = ov
+    P.pop('rules', None)        # older format; general rules now live in the pipeline
+    return P
+
+
+def save(P):
+    d = P.pop('_dir')
+    json.dump(P, open(os.path.join(d, 'profile.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    P['_dir'] = d
+
+
+def glyphs_path(P):
+    return os.path.join(P['_dir'], 'glyphs.json')
+
+
+def source_dir(P, source_id):
+    return os.path.join(P['_dir'], 'samples', source_id)
+
+
+def log(P, change, why=None):
+    P.setdefault('log', []).append({'date': datetime.date.today().isoformat(), 'change': change, 'why': why or ''})
+
+
+def create(name, pdf, sheet='alphabet-v1', langs=('de',)):
+    d = path(name)
+    if os.path.exists(d):
+        sys.exit(f'profile already exists: {d}')
+    if sheet not in SHEETS:
+        sys.exit(f'unknown sample sheet {sheet!r}; known: {", ".join(SHEETS)}')
+    src = os.path.join(d, 'samples', sheet)
+    os.makedirs(src)
+    shutil.copy(pdf, os.path.join(src, os.path.basename(pdf)))
+    for n in range(1, SHEETS[sheet] + 1):
+        subprocess.run(['pdftocairo', '-svg', '-f', str(n), '-l', str(n), pdf, os.path.join(src, f'pg{n}.svg')], check=True)
+    P = {'name': name, 'version': VERSION, 'created': datetime.date.today().isoformat(), 'languages': list(langs),
+         'sources': [{'id': sheet, 'sheet': sheet, 'file': os.path.basename(pdf), 'pages': SHEETS[sheet],
+                      'added': datetime.date.today().isoformat()}],
+         'overrides': empty_overrides(), '_dir': d}
+    log(P, f'create from {os.path.basename(pdf)} ({sheet})')
+    save(P)
+    return P
+
+
+def set_chars(P, key, chars, add=True):
+    cur = list(P['overrides'].get(key, []))
+    for c in chars:
+        if add and c not in cur:
+            cur.append(c)
+        if not add and c in cur:
+            cur.remove(c)
+    P['overrides'][key] = cur
+
+
+def main():
+    ap = argparse.ArgumentParser(description='Manage handwriting profiles.')
+    sub = ap.add_subparsers(dest='cmd', required=True)
+    c = sub.add_parser('create'); c.add_argument('name'); c.add_argument('--pdf', required=True)
+    c.add_argument('--sheet', default='alphabet-v1'); c.add_argument('--lang', default='de')
+    sub.add_parser('list')
+    s = sub.add_parser('show'); s.add_argument('name')
+    r = sub.add_parser('override', help='optional personal exception (normally not needed)'); r.add_argument('name')
+    r.add_argument('kind', choices=['clean-dots', 'align-cap'])
+    r.add_argument('chars'); r.add_argument('--remove', action='store_true'); r.add_argument('--why')
+    for cmd in ('block', 'unblock'):
+        b = sub.add_parser(cmd, help='optional personal exception: do not use a variant'); b.add_argument('name'); b.add_argument('char'); b.add_argument('variant')
+        b.add_argument('--why')
+    bd = sub.add_parser('build'); bd.add_argument('name'); bd.add_argument('--no-fixes', action='store_true')
+    e = sub.add_parser('export'); e.add_argument('name'); e.add_argument('zip')
+    i = sub.add_parser('import'); i.add_argument('zip'); i.add_argument('--name')
+    a = ap.parse_args()
+
+    if a.cmd == 'create':
+        P = create(a.name, a.pdf, a.sheet, a.lang.split(','))
+        print('created', P['_dir'])
+    elif a.cmd == 'list':
+        h = home()
+        for n in sorted(os.listdir(h)) if os.path.isdir(h) else []:
+            if os.path.isfile(os.path.join(h, n, 'profile.json')):
+                P = load(n)
+                built = 'built' if os.path.isfile(glyphs_path(P)) else 'not built'
+                print(f"{n:20s} {','.join(P['languages']):6s} {len(P['sources'])} source(s), {built}")
+    elif a.cmd == 'show':
+        P = load(a.name)
+        print(json.dumps({k: v for k, v in P.items() if k != '_dir'}, ensure_ascii=False, indent=2))
+        print('dir:', P['_dir'])
+    elif a.cmd == 'override':
+        P = load(a.name)
+        key = {'clean-dots': 'clean_dots', 'align-cap': 'align_cap_height'}[a.kind]
+        set_chars(P, key, list(a.chars), add=not a.remove)
+        log(P, f"{'remove' if a.remove else 'add'} override {a.kind} {a.chars}", a.why)
+        save(P); print(key, '=', P['overrides'][key])
+    elif a.cmd in ('block', 'unblock'):
+        P = load(a.name)
+        bl = P['overrides'].setdefault('blocked', {})
+        cur = bl.setdefault(a.char, [])
+        if a.cmd == 'block' and a.variant not in cur:
+            cur.append(a.variant)
+        if a.cmd == 'unblock' and a.variant in cur:
+            cur.remove(a.variant)
+        if not cur:
+            bl.pop(a.char)
+        log(P, f'override {a.cmd} {a.char} {a.variant}', a.why)
+        save(P); print('blocked =', bl)
+    elif a.cmd == 'build':
+        here = os.path.dirname(os.path.abspath(__file__))
+        cmd = [sys.executable, os.path.join(here, 'build_glyphs.py'), '--profile', a.name]
+        if a.no_fixes:
+            cmd.append('--no-fixes')
+        sys.exit(subprocess.run(cmd).returncode)
+    elif a.cmd == 'export':
+        P = load(a.name)
+        shutil.make_archive(a.zip[:-4] if a.zip.endswith('.zip') else a.zip, 'zip', os.path.dirname(P['_dir']),
+                            os.path.basename(P['_dir']))
+        print('exported to', a.zip)
+    elif a.cmd == 'import':
+        with zipfile.ZipFile(a.zip) as z:
+            names = {n.split('/')[0] for n in z.namelist()}
+            if len(names) != 1 or any(n.startswith('/') or '..' in n.split('/') for n in z.namelist()):
+                sys.exit('not a penclone profile archive')
+            src = names.pop(); dst = a.name or src
+            if os.path.exists(path(dst)):
+                sys.exit(f'profile already exists: {path(dst)}')
+            os.makedirs(home(), exist_ok=True)
+            tmp = os.path.join(home(), '.import-tmp')
+            shutil.rmtree(tmp, ignore_errors=True); z.extractall(tmp)
+            shutil.move(os.path.join(tmp, src), path(dst)); shutil.rmtree(tmp)
+        P = load(dst); P['name'] = dst; log(P, f'import from {os.path.basename(a.zip)}'); save(P)
+        print('imported', path(dst))
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,48 @@
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install Python dependencies
+        run: pip install -r pipeline/requirements.txt
+      - name: No handwriting data in the repository
+        run: |
+          bad=$(git ls-files | grep -P '\.(pdf|svg|png|zip)$|glyphs[^/]*\.json$|^(samples/(?!README\.md)|profiles/|data/|scans/|local/)' || true)
+          if [ -n "$bad" ]; then echo "Personal handwriting data must not be committed:"; echo "$bad"; exit 1; fi
+      - name: Python compiles
+        run: python -m py_compile pipeline/*.py tools/*.py
+      - name: Command line tools start
+        run: |
+          python pipeline/profiles.py --help
+          python pipeline/build_glyphs.py --help
+          python tools/glyph_report.py --help
+      - name: Profile round trip (no samples needed)
+        run: |
+          export PENCLONE_HOME="$RUNNER_TEMP/penclone"
+          mkdir -p "$PENCLONE_HOME/profiles/demo"
+          echo '{"name":"demo","version":1,"languages":["de"],"sources":[],"overrides":{}}' > "$PENCLONE_HOME/profiles/demo/profile.json"
+          python pipeline/profiles.py override demo clean-dots ';' --why "ci"
+          python pipeline/profiles.py block demo k alphabet-v1:p3 --why "ci"
+          python pipeline/profiles.py show demo
+          python pipeline/profiles.py export demo "$RUNNER_TEMP/demo.zip"
+          python pipeline/profiles.py import "$RUNNER_TEMP/demo.zip" --name demo2
+          python pipeline/profiles.py list
+      - name: Engine syntax
+        run: node --check engine/handwriting.js
