@@ -74,7 +74,7 @@ def paired(by, a, b, key, rng):
 def table(res):
     by = runs_by(res)
     ref = human_ref(res)
-    conds = [c for c in LADDER + LOO if c in by]
+    conds = [c for c in res['conditions'] if c in by]
     lines = ['| condition | ' + ' | '.join(m[1] for m in METRICS) + ' |', '|---' * (len(METRICS) + 1) + '|']
     lines.append('| **writer (reference)** | ' + ' | '.join(
         f'**{ref[k]:.{d}f}**' if k in ref and not np.isnan(ref[k]) else '' for k, _, d, _ in METRICS) + ' |')
@@ -91,7 +91,8 @@ def comparisons(res):
     by = runs_by(res)
     rng = np.random.default_rng(0)
     out = ['| comparison | ' + ' | '.join(PAIRED) + ' |', '|---' * (len(PAIRED) + 1) + '|']
-    pairs = [(LADDER[i], LADDER[i + 1]) for i in range(len(LADDER) - 1)] + [('A0', 'A6')] + [('A6', c) for c in LOO]
+    pairs = [(LADDER[i], LADDER[i + 1]) for i in range(len(LADDER) - 1)] + [('A0', 'A6'), ('A0', 'A7')] + [('A6', c) for c in LOO]
+    pairs += [(c['base'], k) for k, c in res['conditions'].items() if c.get('base')]
     for a, b in pairs:
         if a not in by or b not in by:
             continue
@@ -134,11 +135,15 @@ def figures(res, d):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('results')
+    ap.add_argument('results', nargs='+')
     ap.add_argument('--md')
     ap.add_argument('--figures')
     a = ap.parse_args()
-    res = json.load(open(a.results, encoding='utf-8'))
+    res = json.load(open(a.results[0], encoding='utf-8'))
+    for extra in a.results[1:]:                    # further rounds: same writer, same folds and seeds, other conditions
+        more = json.load(open(extra, encoding='utf-8'))
+        res['conditions'].update(more['conditions'])
+        res['runs'] += [r for r in more['runs'] if r['condition'] not in {x['condition'] for x in res['runs']}]
     txt = '## Results per condition (mean ± SD over folds and seeds)\n\n' + table(res) + \
           '\n\n## Paired differences (same fold and seed), 95 % bootstrap CI, Wilcoxon signed-rank p\n\n' + comparisons(res) + '\n'
     print(txt)

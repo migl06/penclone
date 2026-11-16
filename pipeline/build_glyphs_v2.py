@@ -114,10 +114,10 @@ def drop_shape_outliers(items, k=2.5, min_items=5):
     return [it for it, x in zip(items, d) if x <= np.median(d) + k * 1.4826 * mad]
 
 
-def pack(strokes, join_in=None, join_out=None):
+def pack(strokes, join_in=None, join_out=None, narrow=NARROW):
     """Glyph JSON of one occurrence. join_in / join_out: index of the stroke whose first / last point runs on into the
     previous / next letter (stored as 'ji' / 'jo', so the renderer can join letters the way the writer did)."""
-    strokes = [s * np.array([NARROW, 1.0]) for s in strokes]
+    strokes = [s * np.array([narrow, 1.0]) for s in strokes]
     a = np.concatenate(strokes)
     x0, x1 = a[:, 0].min(), a[:, 0].max()
     w = x1 - x0
@@ -154,6 +154,39 @@ def ink_profile(strokes):
             if 0 <= i < n:
                 L[i] = min(L[i], x); R[i] = max(R[i], x)
     return L, R
+
+
+def pair_clearances(occ, sc):
+    """{(word, ci): clearance in em} for every non-joined pair of neighbouring letters (ci and ci + 1) of a word; the
+    quantity of letter_spacing, per pair."""
+    fits = line_baselines(occ)
+    by_word = {}
+    for o in occ:
+        if o.get('word') is not None:
+            by_word.setdefault(o['word'], []).append(o)
+    out = {}
+    for w, items in by_word.items():
+        items = sorted(items, key=lambda o: o.get('ci', 0))
+        prof = []
+        for o in items:
+            m, b = fits[o['line']]
+            a = np.concatenate(o['strokes'])
+            ys = m * a[:, 0].mean() + b
+            prof.append(ink_profile([np.stack([s[:, 0] * sc, (s[:, 1] - ys) * sc], 1) for s in o['strokes']]))
+        for k in range(len(items) - 1):
+            a, b = items[k], items[k + 1]
+            if b.get('ci', k + 1) != a.get('ci', k) + 1 or (a.get('join_out') is not None and b.get('join_in') is not None):
+                continue
+            (_, Ra), (Lb, _) = prof[k], prof[k + 1]
+            best = np.inf
+            for i in range(len(Ra)):
+                if np.isfinite(Ra[i]):
+                    for j in (i - 1, i, i + 1):
+                        if 0 <= j < len(Lb) and np.isfinite(Lb[j]):
+                            best = min(best, Lb[j] - Ra[i])
+            if np.isfinite(best):
+                out[(w, a.get('ci', k))] = float(best)
+    return out
 
 
 def letter_spacing(occ, sc, xh_em=XH_EM, samples=False):
@@ -205,17 +238,20 @@ def letter_spacing(occ, sc, xh_em=XH_EM, samples=False):
     return (res, v) if samples else res
 
 
-def build(occ, max_variants=MAX_VARIANTS, max_cost=None):
+def build(occ, max_variants=MAX_VARIANTS, max_cost=None, narrow=NARROW, links=False):
     """max_variants: variants kept per character (farthest-point choice); None keeps every occurrence that passed the
     outlier checks, so letter shapes appear as often as the writer used them.
     max_cost: occurrences whose alignment cost (align_v2) is higher are not used as variants (they still count for the
-    measurements); a word is accepted up to the alignment limit, but its least certain letters may be cut wrongly."""
+    measurements); a word is accepted up to the alignment limit, but its least certain letters may be cut wrongly.
+    narrow: horizontal scale of the glyphs (0.9 was set by eye early on; 1.0 keeps the writer's proportions).
+    links: give every variant an id and, where the next letter of the same source word is a variant too, its id ('nx')
+    and the clearance between the two in em ('ng'), so the renderer can continue a source word (unit selection)."""
     norm, sc, xh_pt = normalise(occ)
     by = {}
     for o in norm:
         by.setdefault(o['char'], []).append(o)
     report = {'scale_em_per_pt': sc, 'xheight_pt': xh_pt, 'chars': {}, 'proportions': {}}
-    out = {}
+    out, ids = {}, {}
     for ch, items in by.items():
         if max_cost is not None:
             items = [o for o in items if o.get('cost') is None or o['cost'] <= max_cost]
@@ -228,8 +264,10 @@ def build(occ, max_variants=MAX_VARIANTS, max_cost=None):
         chosen = keep if max_variants is None else pick_varied(keep, max_variants)
         out[ch] = []
         for o in chosen:
-            g = pack(o['strokes'], o.get('join_in'), o.get('join_out')); g['pos'] = o['pos']
+            g = pack(o['strokes'], o.get('join_in'), o.get('join_out'), narrow); g['pos'] = o['pos']
             out[ch].append(g)
+            if links and o.get('word') is not None:
+                ids[(o['word'], o.get('ci'))] = g
         report['chars'][ch] = {'found': len(items), 'kept': len(keep), 'variants': len(chosen)}
 
     def med_top(chars):
@@ -240,6 +278,16 @@ def build(occ, max_variants=MAX_VARIANTS, max_cost=None):
                              'capital_over_xheight': cap / XH_EM if cap else None,
                              'ascender_over_xheight': asc / XH_EM if asc else None}
     report['letter_spacing'] = letter_spacing(occ, sc)
+    if links:
+        for n, g in enumerate(ids.values()):
+            g['id'] = n
+        gaps = pair_clearances(occ, sc)
+        for (w, ci), g in ids.items():
+            nxt = ids.get((w, ci + 1)) if ci is not None else None
+            if nxt is not None:
+                g['nx'] = nxt['id']
+                if (w, ci) in gaps:
+                    g['ng'] = round(gaps[(w, ci)] * narrow, 4)
     return out, report
 
 

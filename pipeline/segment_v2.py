@@ -132,7 +132,7 @@ def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean
                     for ci, (ch, pc) in enumerate(zip(chars, parts)):
                         pos = 'single' if len(chars) == 1 else 'initial' if ci == 0 else 'final' if ci == len(chars) - 1 else 'medial'
                         occ.append({'char': ch, 'pos': pos, 'strokes': pc, 'baseline': ln['baseline'], 'line': li,
-                                    'page': page, 'cost': costs[ci], 'word': (li, k),
+                                    'page': page, 'cost': costs[ci], 'word': (li, k), 'ci': ci,
                                     'join_in': jn[ci]['in'], 'join_out': jn[ci]['out']})
                         stats['chars'] += 1
                     continue
@@ -145,6 +145,6 @@ def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean
                     # first and last letters of a word are written differently (Srihari et al. 2002, cited by Haines et al.)
                     pos = 'single' if len(chars) == 1 else 'initial' if ci == 0 else 'final' if ci == len(chars) - 1 else 'medial'
                     occ.append({'char': ch, 'pos': pos, 'strokes': [st[i] for i in c], 'baseline': ln['baseline'],
-                                'line': li, 'page': page, 'word': (li, k), 'join_in': None, 'join_out': None})
+                                'line': li, 'page': page, 'word': (li, k), 'ci': ci, 'join_in': None, 'join_out': None})
                     stats['chars'] += 1
     return occ, stats

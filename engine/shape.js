@@ -35,9 +35,15 @@ const NB = 30, BY0 = -1.1, BH = 0.05;
  * @typedef {{glyph: Glyph, x: number, join?: boolean}} Placed
  * @typedef {{text: string, placed: Placed[], charStart: number[], width: number, missing: string[], substituted: string[], key: string[],
  *   spacing: {clear: (number|undefined)[], joined: boolean[]}}} Word
- * @typedef {{clearance?: number[], joins?: boolean, widthSd?: number, pressSd?: number}} Style
+ * @typedef {{clearance?: number[], joins?: boolean, widthSd?: number, pressSd?: number, jitter?: number, continuation?: boolean,
+ *   deck?: boolean}} Style
  *   clearance: quantiles (em) of the white between neighbouring letters, measured from the writer (else a fixed minimum);
- *   joins: join letters where the writer's variants were joined; widthSd / pressSd: pen width variation per letter / word.
+ *   joins: join letters where the writer's variants were joined; widthSd / pressSd: pen width variation per letter / word;
+ *   jitter: factor on every per-use shape variation (size, scale, rotation, shear, wobble), 1 = the values above;
+ *   continuation: when the previous letter's source word went on with the needed character, use that occurrence with its
+ *   original clearance and join (unit selection as in Haines et al. 2016);
+ *   deck: use every variant of a character once before any is used twice (in document order; editing a word then also
+ *   changes the choice of later letters of the same characters).
  */
 
 /** Entry / exit point of a variant's join (glyph units), or null. */
@@ -53,7 +59,7 @@ const joinPoint = (v, which) => {
  * start with a join are used, preferring entries at the same height), false if the previous letter ends freely (then
  * variants with an entry join are avoided), undefined to ignore joins.
  */
-function pickVariant(variants, pos, r, avoid, join) {
+function pickVariant(variants, pos, r, avoid, join, uses) {
   let pool = variants.map((v, i) => i);
   if (pos) {
     const same = pool.filter((i) => variants[i].pos === pos);
@@ -65,6 +71,11 @@ function pickVariant(variants, pos, r, avoid, join) {
     if (fit.length) pool = fit;
   }
   if (pool.length > 1 && avoid !== undefined) pool = pool.filter((i) => i !== avoid);
+  if (uses && pool.length > 1) {
+    // deck: only the least used variants are candidates, so every shape is used once before any is used twice
+    const m = Math.min(...pool.map((i) => uses[i] ?? 0));
+    pool = pool.filter((i) => (uses[i] ?? 0) === m);
+  }
   if (join && pool.length > 1) {
     // entries close to the height of the exit are likelier (the writer's own joins meet at the same height)
     const wts = pool.map((i) => {
@@ -84,13 +95,14 @@ export function fromQuantiles(r, q) {
 }
 
 /** Transform one variant and compute its ink profile. */
-function prepare(ch, v, r, walk, penW, widthSd = SHAPE.widthSd) {
-  walk.sz = Math.max(SHAPE.sizeMin, Math.min(SHAPE.sizeMax, 1 + (walk.sz - 1) * SHAPE.sizeKeep + gauss(r) * SHAPE.sizeSd));
-  walk.rot = Math.max(-SHAPE.rotMax, Math.min(SHAPE.rotMax, walk.rot * SHAPE.rotKeep + gauss(r) * SHAPE.rotSd));
-  const sx = walk.sz * (1 + gauss(r) * SHAPE.sxSd), sy = walk.sz * (1 + gauss(r) * SHAPE.sySd);
-  const rot = walk.rot + gauss(r) * SHAPE.rotJitter, sh = gauss(r) * SHAPE.shearSd;
+function prepare(ch, v, r, walk, penW, widthSd = SHAPE.widthSd, jitter = 1) {
+  const j = jitter;
+  walk.sz = Math.max(SHAPE.sizeMin, Math.min(SHAPE.sizeMax, 1 + (walk.sz - 1) * SHAPE.sizeKeep + gauss(r) * SHAPE.sizeSd * j));
+  walk.rot = Math.max(-SHAPE.rotMax, Math.min(SHAPE.rotMax, walk.rot * SHAPE.rotKeep + gauss(r) * SHAPE.rotSd * j));
+  const sx = walk.sz * (1 + gauss(r) * SHAPE.sxSd * j), sy = walk.sz * (1 + gauss(r) * SHAPE.sySd * j);
+  const rot = walk.rot + gauss(r) * SHAPE.rotJitter * j, sh = gauss(r) * SHAPE.shearSd * j;
   const k1 = 5 + r() * 5, k2 = 5 + r() * 5, p1 = r() * 6.2832, p2 = r() * 6.2832;
-  const a1 = SHAPE.wobble * (0.4 + r()), a2 = SHAPE.wobble * (0.4 + r());
+  const a1 = SHAPE.wobble * j * (0.4 + r()), a2 = SHAPE.wobble * j * (0.4 + r());
   const cx = v.adv / 2, cr = Math.cos(rot), sr = Math.sin(rot);
   // rotate around the middle of the x-height so that letters do not jump off the baseline
   const T = ([x, y]) => {
@@ -178,7 +190,8 @@ const wordWidth = (placed) => (placed.length ? placed[placed.length - 1].x + pla
  * Shape one word (no spaces).
  * @param {import('./glyphs.js').Library} lib
  * @param {string} text
- * @param {{seed: string|number, key: (string|number)[], bold?: boolean, positions?: boolean, style?: Style}} o
+ * @param {{seed: string|number, key: (string|number)[], bold?: boolean, positions?: boolean, style?: Style,
+ *   uses?: Map<string, number[]>}} o  uses: how often each variant was used so far in the document (style.deck)
  *        key names this word uniquely and stably, e.g. [text, n] for the n-th occurrence of the text in the document.
  * @returns {Word}
  */
@@ -210,10 +223,16 @@ export function shapeWord(lib, text, o) {
         : first === lastL && i === first ? 'single' : i === first ? 'initial' : i === lastL ? 'final' : 'medial';
       const letter = /\p{L}|\p{N}/u.test(c);
       const exit = st.joins && prevV && prevLetter && letter ? joinPoint(prevV, 'out') : null;
-      const vi = pickVariant(vs, pos, r, last[c], st.joins ? (exit ?? false) : undefined);
+      // continuation: the previous letter's source word went on with this very character -> take that occurrence
+      const link = st.continuation && prevV?.nx !== undefined && prevLetter && letter ? lib.byId?.get(prevV.nx) : undefined;
+      const cont = !!link && link.c === c && link.i !== last[c];
+      let used;
+      if (o.uses) { used = o.uses.get(c); if (!used) { used = []; o.uses.set(c, used); } }
+      const vi = cont && link ? link.i : pickVariant(vs, pos, r, last[c], st.joins ? (exit ?? false) : undefined, used);
       last[c] = vi;
-      const g = prepare(c, vs[vi], r, walk, penW, st.widthSd);
-      let jn = !!exit && vs[vi].ji !== undefined;
+      if (used) used[vi] = (used[vi] ?? 0) + 1;
+      const g = prepare(c, vs[vi], r, walk, penW, st.widthSd, st.jitter ?? 1);
+      let jn = cont ? prevV?.jo !== undefined && vs[vi].ji !== undefined && !!st.joins : !!exit && vs[vi].ji !== undefined;
       if (jn) {
         // a join that would have to bridge a large height difference looks drawn, not written: lift the pen instead
         const pg = glyphs[glyphs.length - 1], e = pg.polys[pg.jo ?? -1], sIn = g.polys[g.ji ?? -1];
@@ -221,7 +240,8 @@ export function shapeWord(lib, text, o) {
       }
       joined.push(jn);
       // measured clearance is between centre lines; the ink profile includes the pen, so subtract one pen width
-      clear.push(st.clearance ? fromQuantiles(rs, st.clearance) - penW : undefined);
+      const sampled = st.clearance ? fromQuantiles(rs, st.clearance) - penW : undefined;
+      clear.push(cont && prevV?.ng !== undefined ? prevV.ng - penW : sampled);
       glyphs.push(g);
       prevV = vs[vi]; prevLetter = letter;
     }

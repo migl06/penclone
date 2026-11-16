@@ -145,10 +145,11 @@ export function layout(lib, text, options = {}) {
   }
   const missing = {}, substituted = {}, overflow = [];
   const seen = new Map();
+  const uses = style.deck ? new Map() : undefined;
   const shape = (w) => {
     const n = (seen.get(w) ?? 0) + 1;
     seen.set(w, n);
-    const s = shapeWord(lib, w, { seed, key: [w, n], positions: o.positions, style });
+    const s = shapeWord(lib, w, { seed, key: [w, n], positions: o.positions, style, uses });
     for (const c of s.missing) missing[c] = (missing[c] ?? 0) + 1;
     for (const c of s.substituted) substituted[c] = (substituted[c] ?? 0) + 1;
     return s;

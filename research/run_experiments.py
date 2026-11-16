@@ -42,8 +42,7 @@ W = None   # the writer, loaded once before the workers fork
 
 
 def train_job(args):
-    f, merge, mv, cost = args
-    W.train(f, merge, mv, cost)
+    W.train(*args)
     return args
 
 
@@ -61,7 +60,7 @@ def real_job(f):
 def gen_job(args):
     cid, f, seed = args
     c = CONDITIONS[cid]
-    t = W.train(f, c['merge'], c['mv'], c.get('cost'))
+    t = W.train(f, *H.train_args(c))
     glyphs = W.v1 if c['glyphs'] == 'v1' else H.with_fallback(t['glyphs'], W.v1, c.get('fb', 1))
     _, te = W.fold(f)
     texts = [W.man['lines'][i]['text'] for i in sorted(te)]
@@ -125,8 +124,8 @@ def main():
     conds = a.conditions.split(',')
     ctx = mp.get_context('fork')
     with ctx.Pool(a.jobs) as pool:
-        keys = sorted({(f, CONDITIONS[c]['merge'], CONDITIONS[c]['mv'], CONDITIONS[c].get('cost')) for c in conds for f in (0, 1)}
-                      | {(0, True, None, None), (1, True, None, None)}, key=str)
+        keys = sorted({(f, *H.train_args(CONDITIONS[c])) for c in conds for f in (0, 1)}
+                      | {(0, True, None, None, None, False), (1, True, None, None, None, False)}, key=str)
         list(pool.imap_unordered(train_job, keys))
         print(f'train sets ready ({time.time() - t0:.0f} s)', flush=True)
         real = dict(pool.map(real_job, (0, 1)))

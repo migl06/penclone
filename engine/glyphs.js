@@ -9,8 +9,10 @@
 /** Lower-case letters without ascender or descender; their median top is the x-height (as in the pipeline). */
 const XH_CHARS = 'acemnorsuvwxz';
 
-/** @typedef {{adv: number, s: number[][][], f?: boolean, pos?: string}} Variant */
-/** @typedef {{chars: Map<string, Variant[]>, xHeight: number}} Library */
+/** @typedef {{adv: number, s: number[][][], f?: boolean, pos?: string, ji?: number, jo?: number, id?: number, nx?: number, ng?: number}} Variant
+ *  ji / jo: stroke whose start / end runs on into the previous / next letter; id, nx, ng: this variant's id, the id of the
+ *  letter that followed it in the source word and the clearance to it (em). */
+/** @typedef {{chars: Map<string, Variant[]>, xHeight: number, byId?: Map<number, {c: string, i: number}>}} Library */
 
 /** Build a library from glyph JSON (one object, or several merged in order: e.g. sheet v1 + sheet v2). */
 export function loadLibrary(...sources) {
@@ -26,7 +28,10 @@ export function loadLibrary(...sources) {
     }
   }
   if (!chars.size) throw new Error('glyph library is empty');
-  return { chars, xHeight: measureXHeight(chars) };
+  /** @type {Map<number, {c: string, i: number}>} variant id -> character and index (links between source neighbours) */
+  const byId = new Map();
+  for (const [c, vs] of chars) vs.forEach((v, i) => { if (typeof v.id === 'number') byId.set(v.id, { c, i }); });
+  return { chars, xHeight: measureXHeight(chars), byId };
 }
 
 function measureXHeight(chars) {

@@ -70,16 +70,16 @@ class Writer:
         _, sc, xh_pt = normalise(occ)
         return sc, xh_pt
 
-    def train(self, f, merge=True, max_variants=None, max_cost=None):
+    def train(self, f, merge=True, max_variants=None, max_cost=None, narrow=None, links=False):
         """Glyphs and measured habits from the train lines of fold f (cached)."""
-        key = f'train-f{f}-m{int(merge)}-v{max_variants}' + (f'-c{max_cost}' if max_cost is not None else '')
+        key = train_key(f, merge, max_variants, max_cost, narrow, links)
         fn = os.path.join(CACHE, key + '.json')
         if os.path.exists(fn):
             return json.load(open(fn, encoding='utf-8'))
         tr, _ = self.fold(f)
         sc, xh_pt = self.scale(tr)
         occ, st = segment(self.pages, self.man, self.T, sc, LIMIT, lines=tr, merge=merge)
-        glyphs, rep = build(occ, max_variants, max_cost)
+        glyphs, rep = build(occ, max_variants, max_cost, **({'narrow': narrow} if narrow is not None else {}), links=links)
         lay = measure(self.pages, sub_manifest(self.man, tr), xh_pt)
         lay['letter_spacing'] = rep['letter_spacing']
         res = {'glyphs': glyphs, 'layout': lay, 'sc': sc, 'xh_pt': xh_pt,
@@ -87,6 +87,16 @@ class Writer:
         os.makedirs(CACHE, exist_ok=True)
         json.dump(res, open(fn, 'w', encoding='utf-8'), ensure_ascii=False)
         return res
+
+
+def train_key(f, merge, max_variants, max_cost=None, narrow=None, links=False):
+    return (f'train-f{f}-m{int(merge)}-v{max_variants}' + (f'-c{max_cost}' if max_cost is not None else '')
+            + (f'-n{narrow}' if narrow is not None else '') + ('-links' if links else ''))
+
+
+def train_args(c):
+    """Arguments of Writer.train for a condition dict."""
+    return c['merge'], c['mv'], c.get('cost'), c.get('narrow'), bool(c.get('style', {}).get('continuation'))
 
 
 def with_fallback(glyphs, v1, min_variants=1):
