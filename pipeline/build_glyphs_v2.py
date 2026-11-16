@@ -114,7 +114,9 @@ def drop_shape_outliers(items, k=2.5, min_items=5):
     return [it for it, x in zip(items, d) if x <= np.median(d) + k * 1.4826 * mad]
 
 
-def pack(strokes):
+def pack(strokes, join_in=None, join_out=None):
+    """Glyph JSON of one occurrence. join_in / join_out: index of the stroke whose first / last point runs on into the
+    previous / next letter (stored as 'ji' / 'jo', so the renderer can join letters the way the writer did)."""
     strokes = [s * np.array([NARROW, 1.0]) for s in strokes]
     a = np.concatenate(strokes)
     x0, x1 = a[:, 0].min(), a[:, 0].max()
@@ -126,10 +128,84 @@ def pack(strokes):
         q = s.copy(); q[:, 0] += off
         q = rdp(q, RDP_EPS) if len(q) > 3 else q
         ss.append([[round(float(x), 3), round(float(y), 3)] for x, y in q])
-    return {'adv': round(float(adv), 3), 's': ss}
+    g = {'adv': round(float(adv), 3), 's': ss}
+    if join_in is not None:
+        g['ji'] = int(join_in)
+    if join_out is not None:
+        g['jo'] = int(join_out)
+    return g
 
 
-def build(occ):
+BANDS = (-1.1, 0.4, 0.05)          # em: ink profile bands from above the capitals to below the descenders (as engine/shape.js)
+
+
+def ink_profile(strokes):
+    """Leftmost and rightmost centre-line x per horizontal band (em), strokes densified to 0.015 em steps."""
+    y0, y1, bh = BANDS
+    n = int(round((y1 - y0) / bh))
+    L, R = np.full(n, np.inf), np.full(n, -np.inf)
+    for st in strokes:
+        pts = [st[0]]
+        for a, b in zip(st[:-1], st[1:]):
+            k = max(1, int(np.ceil(np.hypot(*(b - a)) / 0.015)))
+            pts += [a + (b - a) * t for t in np.linspace(0, 1, k + 1)[1:]]
+        for x, y in pts:
+            i = int((y - y0) // bh)
+            if 0 <= i < n:
+                L[i] = min(L[i], x); R[i] = max(R[i], x)
+    return L, R
+
+
+def letter_spacing(occ, sc, xh_em=XH_EM):
+    """How the writer spaces neighbouring letters inside a word, from aligned occurrences (strokes in pt).
+
+    clearance: the smallest horizontal distance between the centre lines of two neighbouring letters, over bands of equal
+    height (and the bands next to them) - the same quantity the renderer uses to place letters - for letter pairs that
+    are not joined; in x-heights. join_rate: share of neighbouring pairs written in one stroke."""
+    fits = line_baselines(occ)
+    by_word = {}
+    for o in occ:
+        if o.get('word') is not None:
+            by_word.setdefault(o['word'], []).append(o)
+    clear, joined, pairs = [], 0, 0
+    for w, items in by_word.items():
+        prof = []
+        for o in items:
+            m, b = fits[o['line']]
+            a = np.concatenate(o['strokes'])
+            ys = m * a[:, 0].mean() + b
+            S = [np.stack([s[:, 0] * sc, (s[:, 1] - ys) * sc], 1) for s in o['strokes']]
+            prof.append(ink_profile(S))
+        for k in range(len(items) - 1):
+            a, b = items[k], items[k + 1]
+            if not (a['char'].isalnum() and b['char'].isalnum()):
+                continue
+            pairs += 1
+            if a.get('join_out') is not None and b.get('join_in') is not None:
+                joined += 1
+                continue
+            (_, Ra), (Lb, _) = prof[k], prof[k + 1]
+            best = np.inf
+            for i in range(len(Ra)):
+                if not np.isfinite(Ra[i]):
+                    continue
+                for j in (i - 1, i, i + 1):
+                    if 0 <= j < len(Lb) and np.isfinite(Lb[j]):
+                        best = min(best, Lb[j] - Ra[i])
+            if np.isfinite(best):
+                clear.append(best / xh_em)
+    v = np.array(clear)
+    q = lambda p: round(float(np.percentile(v, p)), 4) if len(v) else None
+    return {'unit': 'x-height', 'n': int(len(v)), 'pairs': pairs, 'join_rate': round(joined / pairs, 4) if pairs else None,
+            'clearance': {'median': q(50), 'q1': q(25), 'q3': q(75), 'p05': q(5), 'p95': q(95),
+                          'mean': round(float(v.mean()), 4) if len(v) else None,
+                          'sd': round(float(v.std()), 4) if len(v) else None,
+                          'quantiles': [round(float(x), 4) for x in np.percentile(v, np.linspace(0, 100, 21))] if len(v) >= 20 else None}}
+
+
+def build(occ, max_variants=MAX_VARIANTS):
+    """max_variants: variants kept per character (farthest-point choice); None keeps every occurrence that passed the
+    outlier checks, so letter shapes appear as often as the writer used them."""
     norm, sc, xh_pt = normalise(occ)
     by = {}
     for o in norm:
@@ -141,10 +217,10 @@ def build(occ):
         med = float(np.median(h))
         keep = [o for o, hh in zip(items, h) if med > 0 and OUTLIER[0] <= hh / med <= OUTLIER[1]] if len(items) > 2 else items
         keep = drop_shape_outliers(keep)
-        chosen = pick_varied(keep, MAX_VARIANTS)
+        chosen = keep if max_variants is None else pick_varied(keep, max_variants)
         out[ch] = []
         for o in chosen:
-            g = pack(o['strokes']); g['pos'] = o['pos']
+            g = pack(o['strokes'], o.get('join_in'), o.get('join_out')); g['pos'] = o['pos']
             out[ch].append(g)
         report['chars'][ch] = {'found': len(items), 'kept': len(keep), 'variants': len(chosen)}
 
@@ -155,6 +231,7 @@ def build(occ):
     report['proportions'] = {'capital_height_em': cap, 'ascender_height_em': asc, 'x_height_em': XH_EM,
                              'capital_over_xheight': cap / XH_EM if cap else None,
                              'ascender_over_xheight': asc / XH_EM if asc else None}
+    report['letter_spacing'] = letter_spacing(occ, sc)
     return out, report
 
 

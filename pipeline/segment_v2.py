@@ -83,17 +83,21 @@ def local_baseline(strokes, idx):
     return f
 
 
-def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean_limit=1.0):
+def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean_limit=1.0, lines=None):
     """pages_strokes: {page number: list of strokes}. Returns (occurrences, stats).
     With templates (align_v2.Templates) and scale (em per pt) words are aligned by dynamic programming (joined letters
-    allowed); without them only words whose stroke groups match the letter count exactly are used."""
+    allowed); without them only words whose stroke groups match the letter count exactly are used.
+    Every occurrence also names its word ('word': line, word index) and its joins to the neighbouring letters ('join_in',
+    'join_out': index of the stroke whose start / end runs on into the previous / next letter, else None).
+    lines: only use these manifest line indices (e.g. a training split); default all."""
     if templates is not None:
         from align_v2 import align_word
     occ, stats = [], {'lines': 0, 'words': 0, 'words_ok': 0, 'chars': 0, 'skipped': []}
     row_h = manifest['row_height_pt']
     by_page = {}
     for li, ln in enumerate(manifest['lines']):
-        by_page.setdefault(ln['page'], []).append((li, ln))
+        if lines is None or li in lines:
+            by_page.setdefault(ln['page'], []).append((li, ln))
     for page, items in by_page.items():
         st = pages_strokes.get(page)
         if st is None:
@@ -112,7 +116,8 @@ def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean
             for k, (w, g) in enumerate(zip(words, groups)):
                 chars = [c for c in w]
                 if templates is not None:
-                    parts, costs = align_word([st[i] for i in g], chars, templates, base_y, scale, limit, mean_limit=mean_limit)
+                    parts, costs, jn = align_word([st[i] for i in g], chars, templates, base_y, scale, limit,
+                                                  mean_limit=mean_limit, joins=True)
                     if parts is None:
                         stats['skipped'].append((li, f'{w!r}: no good alignment'))
                         continue
@@ -120,7 +125,8 @@ def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean
                     for ci, (ch, pc) in enumerate(zip(chars, parts)):
                         pos = 'single' if len(chars) == 1 else 'initial' if ci == 0 else 'final' if ci == len(chars) - 1 else 'medial'
                         occ.append({'char': ch, 'pos': pos, 'strokes': pc, 'baseline': ln['baseline'], 'line': li,
-                                    'page': page, 'cost': costs[ci]})
+                                    'page': page, 'cost': costs[ci], 'word': (li, k),
+                                    'join_in': jn[ci]['in'], 'join_out': jn[ci]['out']})
                         stats['chars'] += 1
                     continue
                 cl = merge_to(st, xclusters(st, g, pad=0.0), len(chars))
@@ -132,6 +138,6 @@ def segment(pages_strokes, manifest, templates=None, scale=None, limit=0.9, mean
                     # first and last letters of a word are written differently (Srihari et al. 2002, cited by Haines et al.)
                     pos = 'single' if len(chars) == 1 else 'initial' if ci == 0 else 'final' if ci == len(chars) - 1 else 'medial'
                     occ.append({'char': ch, 'pos': pos, 'strokes': [st[i] for i in c], 'baseline': ln['baseline'],
-                                'line': li, 'page': page})
+                                'line': li, 'page': page, 'word': (li, k), 'join_in': None, 'join_out': None})
                     stats['chars'] += 1
     return occ, stats

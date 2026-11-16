@@ -66,15 +66,55 @@ class Templates:
         return float(best)
 
 
-def align_word(strokes, chars, T, base_y, sc, limit=0.9, max_group=MAX_GROUP, mean_limit=1.0):
+def merge_pieces(groups, ids):
+    """Put the pieces of every character back together where they came from one pen stroke, and find the joins.
+
+    groups: atoms per character; ids: (stroke, part) per atom, in the same nesting. Consecutive parts of one stroke inside a
+    character become one stroke again (cutting is only a means of alignment: a letter written in one go stays one stroke).
+    A join is a pen stroke that runs on from one character into the next: the previous character's piece ends exactly where
+    this character's piece starts.
+    Returns (strokes per character, joins per character as {'in': stroke index or None, 'out': stroke index or None})."""
+    where = {pid: j for j, g in enumerate(ids) for pid in g}
+    out, joins = [], []
+    for j, (g, gid) in enumerate(zip(groups, ids)):
+        order = sorted(range(len(g)), key=lambda k: gid[k])
+        merged, mid = [], []
+        for k in order:
+            s, p = gid[k]
+            if mid and mid[-1] == (s, p - 1):
+                merged[-1] = np.vstack([merged[-1], g[k][1:]])
+            else:
+                merged.append(g[k])
+            mid.append((s, p))
+        # first/last (stroke, part) of every merged stroke
+        firsts, lasts, cur = [], [], None
+        for s, p in mid:
+            if cur is None or (s, p - 1) != cur:
+                firsts.append((s, p))
+                if cur is not None:
+                    lasts.append(cur)
+            cur = (s, p)
+        lasts.append(cur)
+        j_in = next((i for i, (s, p) in enumerate(firsts) if p > 0 and where.get((s, p - 1)) == j - 1), None)
+        j_out = next((i for i, (s, p) in enumerate(lasts) if where.get((s, p + 1)) == j + 1), None)
+        out.append(merged)
+        joins.append({'in': j_in, 'out': j_out})
+    return out, joins
+
+
+def align_word(strokes, chars, T, base_y, sc, limit=0.9, max_group=MAX_GROUP, mean_limit=1.0, joins=False):
     """strokes: list of arrays (pt) of one word; chars: its characters.
-    Returns (groups, costs): a list of lists of stroke pieces (pt) per character, or (None, None) if the word does not fit."""
+    Returns (groups, costs): a list of lists of stroke pieces (pt) per character, or (None, None) if the word does not fit.
+    With joins=True the pieces of a character are merged back into its pen strokes and the result is
+    (groups, costs, joins), see merge_pieces."""
     tol = 0.12 / sc                                  # 0.12 em in pt
-    atoms = [a for s in strokes for a in cut_stroke(s, base_y, tol)]
-    atoms.sort(key=lambda a: (a[:, 0].min() + a[:, 0].max()) / 2)
+    tagged = [(a, (si, pi)) for si, s in enumerate(strokes) for pi, a in enumerate(cut_stroke(s, base_y, tol))]
+    tagged.sort(key=lambda t: (t[0][:, 0].min() + t[0][:, 0].max()) / 2)
+    atoms = [a for a, _ in tagged]
+    atom_ids = [i for _, i in tagged]
     m, n = len(atoms), len(chars)
     if m < n:
-        return None, None
+        return (None, None, None) if joins else (None, None)
     memo = {}
 
     def gcost(i, k, j):                              # atoms i..i+k-1 as character j
@@ -96,12 +136,15 @@ def align_word(strokes, chars, T, base_y, sc, limit=0.9, max_group=MAX_GROUP, me
                 if c < best[i, j]:
                     best[i, j] = c; back[(i, j)] = k
     if best[m, n] >= INF:
-        return None, None
-    groups, costs, i = [], [], m
+        return (None, None, None) if joins else (None, None)
+    groups, ids, costs, i = [], [], [], m
     for j in range(n, 0, -1):
         k = back[(i, j)]
-        groups.append(atoms[i - k:i]); costs.append(gcost(i - k, k, j - 1)); i -= k
-    groups.reverse(); costs.reverse()
+        groups.append(atoms[i - k:i]); ids.append(atom_ids[i - k:i]); costs.append(gcost(i - k, k, j - 1)); i -= k
+    groups.reverse(); ids.reverse(); costs.reverse()
     if max(costs) > limit or float(np.mean(costs)) > mean_limit:
-        return None, None
+        return (None, None, None) if joins else (None, None)
+    if joins:
+        merged, jn = merge_pieces(groups, ids)
+        return merged, costs, jn
     return groups, costs
