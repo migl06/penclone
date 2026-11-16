@@ -22,7 +22,8 @@ penclone profile create me
 penclone sample-sheet --out sheet.pdf
 ```
 
-`sheet.pdf` contains given sentences, each with a ruled line below.
+`sheet.pdf` contains given sentences, each with a ruled line below. Write them in your normal **print** handwriting
+(letters one by one; where you usually join two letters, join them). penclone is not made for cursive.
 
 - **On an iPad (recommended):** open the PDF in GoodNotes, Notability or similar, write with the Apple Pencil and export the
   pages as PDF (the strokes stay vectors, which gives the cleanest result).
@@ -111,4 +112,5 @@ commands there is the skill in `skill/penclone/`.
 
 Samples, glyphs and profiles stay on your computer (`~/.local/share/penclone/`); penclone uploads nothing. Backup:
 `penclone profile export me me.zip`. To help: `penclone validate me` prints numbers only (proportions, gaps) that you may paste
-into an issue to check the general rules. penclone writes your own handwriting; signatures you still write yourself.
+into an issue to check the general rules. penclone writes your own handwriting in print (not cursive); signatures you
+still write yourself.

@@ -12,7 +12,8 @@
 
 ## 1 Introduction
 
-penclone writes text in a person's own handwriting from strokes they recorded on a tablet. It is a glyph-based
+penclone writes text in a person's own print handwriting (letters written one by one, some joined; cursive is out of
+scope) from strokes they recorded on a tablet. It is a glyph-based
 (concatenative) synthesiser: the writer's letters are cut out of sample sentences, varied slightly and set one after the
 other. The goal is writing that is indistinguishable from the writer's own hand, including when it lies next to a page the
 person really wrote.

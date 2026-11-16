@@ -13,6 +13,10 @@ tatsächlichen Tinte gesetzt, damit sie sich nie berühren.
 
 Gedacht für: Lernzettel, Briefe und Karten, Antworten auf Arbeitsblättern, Mockups.
 
+**Für Druckschrift.** penclone ist für Handschrift in Druckschrift gemacht: Buchstaben einzeln geschrieben, einige davon
+verbunden. Für Schreibschrift (verbundene Schrift, bei der der Stift ganze Wörter lang auf dem Papier bleibt) ist es nicht
+gedacht. Solche Schrift lässt sich noch nicht zuverlässig in Buchstaben zerlegen.
+
 > **Stand: früh, aber benutzbar.** Funktioniert: Handschrift-Profile, Probeblätter (ganz oder nur fehlende Zeichen), Layout mit
 > deutscher Silbentrennung und einem aus deinen Proben gemessenen Zeilenmodell, Papier (liniert, kariert, punktiert, deutsche
 > Lineaturen, dein eigenes eingescanntes Papier), Stifte und iPad-Look, Arbeitsblätter, PDF / SVG / PNG und bearbeitbare Tinte

@@ -26,7 +26,9 @@ penclone profile create ich
 penclone sample-sheet --out sheet.pdf
 ```
 
-`sheet.pdf` enthält vorgegebene deutsche Sätze. Jeder Satz hat eine Linie darunter.
+`sheet.pdf` enthält vorgegebene deutsche Sätze. Jeder Satz hat eine Linie darunter. Schreib sie in deiner normalen
+**Druckschrift** (Buchstaben einzeln; wo du sonst zwei Buchstaben verbindest, verbinde sie auch hier). Für Schreibschrift ist
+penclone nicht gedacht.
 
 - **Am iPad (empfohlen):** Öffne `sheet.pdf` in GoodNotes, Notability o. ä. und schreib mit dem Apple Pencil. Exportiere die Seiten
   danach als PDF. Die Striche bleiben dabei Vektoren, das gibt das sauberste Ergebnis.
@@ -143,4 +145,4 @@ Für Agenten, die Befehle ausführen, gibt es den Skill `skill/penclone/`.
 - Sicherung: `penclone profile export ich ich.zip`.
 - Freiwillig helfen: `penclone validate ich` gibt nur Zahlen aus (Proportionen, Abstände) und keine Striche. Die kannst du in ein
   Issue kopieren, um die allgemeinen Regeln zu prüfen.
-- penclone schreibt deine eigene Handschrift; Unterschriften leistest du weiter selbst.
+- penclone schreibt deine eigene Handschrift in Druckschrift (nicht Schreibschrift); Unterschriften leistest du weiter selbst.

@@ -13,6 +13,10 @@ they never touch.
 
 Typical uses: study notes, letters and cards, answers on worksheets, mockups.
 
+**For print handwriting.** penclone is made for handwriting in print: letters written one by one, a few of them joined. It
+is not made for cursive (joined-up script, where the pen stays on the paper for whole words); such writing cannot be cut into
+letters reliably yet.
+
 > **Status: early but usable.** Working: handwriting profiles, sample sheets (full or only missing characters), layout with
 > German hyphenation and a line model measured from your samples, paper (lined, squared, dotted, German Lineaturen, your own
 > scanned paper), pens and an iPad look, worksheets, PDF / SVG / PNG and editable ink (Xournal++, InkML, Excalidraw), MCP server,
