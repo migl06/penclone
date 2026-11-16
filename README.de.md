@@ -127,10 +127,16 @@ Handschrift ist persönlich. Deine Proben, Glyphen und Profile bleiben **auf dei
 `~/.local/share/penclone/profiles/` (oder `PENCLONE_HOME`, z. B. `./data`), und `samples/`, `data/`, `profiles/`, `scans/`, `*.pdf`,
 `*.svg`, `*.zip` und Glyphen-Dateien werden von Git ignoriert. Die CI lehnt Commits ab, die sie enthalten. penclone lädt nichts hoch.
 
-## Nicht-Ziel
+## Ziel: so menschlich wie möglich
 
-penclone soll natürlich aussehen, ist aber **kein** Werkzeug, um Dokumente zu fälschen oder Echtheitsprüfungen zu umgehen. Es gibt
-keine Funktionen, die KI-Erkenner, Schriftgutachten oder physische Prüfungen täuschen sollen.
+Eine Seite von penclone soll aussehen, als hättest du sie mit der Hand geschrieben – man soll keinen Unterschied sehen. Kein
+Zeichen kommt zweimal gleich vor, keine Zeile ist ganz gerade, kein Abstand ganz gleich. Jede Zufallsentscheidung (Variante,
+Größe, Neigung, Druck, Abstand, Grundlinie) wird aus den Verteilungen gezogen, die in *deinen* Proben gemessen wurden. Die
+Schwankung ist also deine und kein allgemeines Zittern. Alles, was nach Maschine oder ausgeschnittenen Buchstaben aussieht –
+gleiche Wiederholungen, konstante Abstände, parallele Grundlinien, gleichförmige Striche –, gilt als Fehler.
+
+penclone schreibt **deine eigene** Handschrift aus **deinen eigenen** Proben. Unterschriften gehören nicht dazu: Wo eine
+eigenhändige Unterschrift verlangt ist, zählt eine geplottete oder gedruckte nicht.
 
 ## Mitmachen
 

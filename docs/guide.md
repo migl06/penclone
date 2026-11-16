@@ -111,4 +111,4 @@ commands there is the skill in `skill/penclone/`.
 
 Samples, glyphs and profiles stay on your computer (`~/.local/share/penclone/`); penclone uploads nothing. Backup:
 `penclone profile export me me.zip`. To help: `penclone validate me` prints numbers only (proportions, gaps) that you may paste
-into an issue to check the general rules. penclone is **not** for forging documents or getting around authenticity checks.
+into an issue to check the general rules. penclone writes your own handwriting; signatures you still write yourself.

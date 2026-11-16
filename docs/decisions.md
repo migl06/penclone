@@ -75,10 +75,12 @@ the same commands, so nothing is ever possible in one interface but not in the o
 The skill lives in `skill/penclone/` (`SKILL.md` + `references/` for options and the sample-writing guide). It never contains
 handwriting data.
 
-### Non-goal
+### Goal: as human as possible
 
-penclone aims to look natural, but it is **not** a tool for getting around authenticity checks. There are no features meant to
-fool AI detectors, handwriting examiners or physical inspection.
+**Decision: the output should be indistinguishable from the user's own handwriting.** Variation comes from the user's measured
+distributions, never from uniform noise; anything regular that a reader would notice (repeated glyphs, constant spacing, parallel
+baselines, uniform strokes) is treated as a bug. Scope: the user's own handwriting from their own samples; no signatures (a
+plotted signature is not a handwritten one).
 
 ## 3. Configurable paper and pen
 

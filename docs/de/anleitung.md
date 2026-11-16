@@ -143,4 +143,4 @@ Für Agenten, die Befehle ausführen, gibt es den Skill `skill/penclone/`.
 - Sicherung: `penclone profile export ich ich.zip`.
 - Freiwillig helfen: `penclone validate ich` gibt nur Zahlen aus (Proportionen, Abstände) und keine Striche. Die kannst du in ein
   Issue kopieren, um die allgemeinen Regeln zu prüfen.
-- penclone ist **nicht** dafür da, Dokumente zu fälschen oder Echtheitsprüfungen zu umgehen.
+- penclone schreibt deine eigene Handschrift; Unterschriften leistest du weiter selbst.

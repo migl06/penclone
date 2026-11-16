@@ -73,10 +73,12 @@ darüber; nichts geht nur in einer Oberfläche und in der anderen nicht.
 Der Skill liegt in `skill/penclone/` (`SKILL.md` + `references/` für Optionen und die Anleitung zum Probeschreiben). Er enthält nie
 Schriftdaten.
 
-### Nicht-Ziel
+### Ziel: so menschlich wie möglich
 
-penclone soll natürlich aussehen, ist aber **kein** Werkzeug, um Echtheitsprüfungen zu umgehen. Es gibt keine Funktionen, die
-gezielt KI-Erkenner, Schriftgutachten oder physische Prüfungen täuschen sollen.
+**Entscheidung: Das Ergebnis soll von der eigenen Handschrift nicht zu unterscheiden sein.** Schwankung kommt aus den gemessenen
+Verteilungen der Person, nie aus gleichförmigem Rauschen. Alles Regelmäßige, das beim Lesen auffällt (wiederholte Zeichen,
+konstante Abstände, parallele Grundlinien, gleichförmige Striche), gilt als Fehler. Rahmen: die eigene Handschrift aus den eigenen
+Proben; keine Unterschriften (eine geplottete Unterschrift ist keine eigenhändige).
 
 ## 3. Papier und Stift einstellbar
 

@@ -147,10 +147,16 @@ Handwriting is personal. Your samples, glyphs and profiles stay **on your comput
 `~/.local/share/penclone/profiles/` (or `PENCLONE_HOME`, e.g. `./data`), and `samples/`, `data/`, `profiles/`, `scans/`, `*.pdf`,
 `*.svg`, `*.zip` and glyph files are git-ignored. CI rejects commits that contain them. penclone uploads nothing.
 
-## Non-goal
+## Goal: as human as possible
 
-penclone aims to look natural. It is **not** a tool for forging documents or getting around authenticity checks, and it has no
-features meant to fool AI detectors, handwriting examiners or physical inspection.
+A page from penclone should look like you wrote it by hand – nobody should be able to tell otherwise. No glyph appears twice,
+no line is perfectly straight, no gap is perfectly even. Every random choice (variant, size, slant, pressure, spacing, baseline)
+is drawn from the distributions measured in *your* samples, so the variation is yours and not generic jitter. Anything that
+gives away machine output or cut-out letters – identical repeats, constant spacing, parallel baselines, uniform strokes – counts
+as a bug.
+
+penclone writes **your own** handwriting from **your own** samples. Signatures are not part of it: where a handwritten signature
+is required, a plotted or printed one does not count.
 
 ## Contributing
 

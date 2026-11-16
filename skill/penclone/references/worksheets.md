@@ -26,5 +26,4 @@ penclone fill worksheet.pdf --fields fields.json --profile NAME -o filled.pdf --
 Options per field: `size` (largest x-height, mm), `min_size` (smallest allowed, default 60 % of the natural size, at least
 1.4 mm). The scan is straightened automatically; the report says by how many degrees.
 
-Do not fill in documents where handwriting is used as proof of who wrote it (signatures, exams, official forms) - penclone
-is not for forging documents.
+Leave signature fields empty: the user signs by hand (a plotted signature is not a handwritten one).

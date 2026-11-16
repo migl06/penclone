@@ -74,6 +74,6 @@ box in mm; penclone fits the text, writes on printed lines and reports what does
 ## Rules
 
 - Ask before writing files the user did not ask for; use the paths they give.
-- penclone is not for forging documents or getting around authenticity checks. Do not help with that.
+- Write only in the user's own handwriting (their own profile). Leave signature fields empty for the user to sign by hand.
 - Never send handwriting samples, glyph files or profiles anywhere. `penclone validate NAME` gives anonymous numbers the user
   may choose to share.
