@@ -5,7 +5,7 @@
  * pipeline/measure_layout.py writes from the writer's own sample sheet v2; the fallbacks below are used only when a
  * profile has no such measurement and are marked as assumptions. */
 import { stream, gauss } from './rng.js';
-import { shapeWord, splitWord } from './shape.js';
+import { shapeWord, splitWord, SHAPE } from './shape.js';
 import { wordBreaks } from './hyphenate.js';
 import { resolvePaper, writingArea } from './paper.js';
 
@@ -154,7 +154,9 @@ export function layout(lib, text, options = {}) {
     for (const c of s.substituted) substituted[c] = (substituted[c] ?? 0) + 1;
     return s;
   };
-  const gapOf = (word) => lognormal(stream(seed, 'gap', ...word.key), o.wordGap) * xh;
+  // measured word gaps are between the centre lines of the ink; glyph boxes include half a pen width on each side
+  const penBox = style.centreGaps ? SHAPE.pen * k : 0;
+  const gapOf = (word) => lognormal(stream(seed, 'gap', ...word.key), o.wordGap) * xh - penBox;
 
   // 1. break into lines: [{words: [{word, x}], empty}] with x in mm from the line start
   /** @type {{words: {word: any, x: number}[]}[]} */

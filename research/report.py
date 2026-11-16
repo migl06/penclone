@@ -138,6 +138,7 @@ def main():
     ap.add_argument('results', nargs='+')
     ap.add_argument('--md')
     ap.add_argument('--figures')
+    ap.add_argument('--ocr', help='legibility results of ocr_round.py')
     a = ap.parse_args()
     res = json.load(open(a.results[0], encoding='utf-8'))
     for extra in a.results[1:]:                    # further rounds: same writer, same folds and seeds, other conditions
@@ -146,6 +147,15 @@ def main():
         res['runs'] += [r for r in more['runs'] if r['condition'] not in {x['condition'] for x in res['runs']}]
     txt = '## Results per condition (mean ± SD over folds and seeds)\n\n' + table(res) + \
           '\n\n## Paired differences (same fold and seed), 95 % bootstrap CI, Wilcoxon signed-rank p\n\n' + comparisons(res) + '\n'
+    if a.ocr:
+        o = json.load(open(a.ocr, encoding='utf-8'))['cer']
+        real = np.mean([v['cer'] for v in o['real'].values()])
+        txt += '\n## Legibility: TrOCR character error rate (seed 1, mean of both folds)\n\n| condition | CER | relative to the writer |\n|---|---|---|\n'
+        txt += f'| **writer (reference)** | **{real:.3f}** | **1.00** |\n'
+        for c, v in o.items():
+            if c != 'real':
+                m = np.mean([x['cer'] for x in v.values()])
+                txt += f'| {c} {res["conditions"].get(c, {}).get("label", "")} | {m:.3f} | {m / real:.2f} |\n'
     print(txt)
     if a.md:
         open(a.md, 'w', encoding='utf-8').write(txt)

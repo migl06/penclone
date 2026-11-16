@@ -75,8 +75,13 @@ def main():
     IDX = iam.writers_index()
     cand = [w for w, ls in IDX.items() if len(ls) >= 40]
     ctx = mp.get_context('fork')
+    cached = os.path.join(H.CACHE, 'iam-survey.json')
     with ctx.Pool(a.jobs) as pool:
-        survey = sorted(pool.map(survey_job, cand), key=lambda r: -r[2])
+        if os.path.exists(cached):
+            survey = [tuple(r) for r in json.load(open(cached))]
+        else:
+            survey = sorted(pool.map(survey_job, cand), key=lambda r: -r[2])
+            json.dump(survey, open(cached, 'w'))
         print(f'survey of {len(cand)} writers ({time.time() - t0:.0f} s); most separate words:',
               [(w, round(s, 2), n) for w, s, n in survey[:a.writers]], flush=True)
         chosen = [w for w, s, n in survey[:a.writers + 4]]

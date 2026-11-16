@@ -36,14 +36,16 @@ const NB = 30, BY0 = -1.1, BH = 0.05;
  * @typedef {{text: string, placed: Placed[], charStart: number[], width: number, missing: string[], substituted: string[], key: string[],
  *   spacing: {clear: (number|undefined)[], joined: boolean[]}}} Word
  * @typedef {{clearance?: number[], joins?: boolean, widthSd?: number, pressSd?: number, jitter?: number, continuation?: boolean,
- *   deck?: boolean}} Style
+ *   deck?: boolean, centreGaps?: boolean}} Style
  *   clearance: quantiles (em) of the white between neighbouring letters, measured from the writer (else a fixed minimum);
  *   joins: join letters where the writer's variants were joined; widthSd / pressSd: pen width variation per letter / word;
  *   jitter: factor on every per-use shape variation (size, scale, rotation, shear, wobble), 1 = the values above;
  *   continuation: when the previous letter's source word went on with the needed character, use that occurrence with its
  *   original clearance and join (unit selection as in Haines et al. 2016);
  *   deck: use every variant of a character once before any is used twice (in document order; editing a word then also
- *   changes the choice of later letters of the same characters).
+ *   changes the choice of later letters of the same characters);
+ *   centreGaps: word gaps measured between the centre lines of the ink are applied as such (else between glyph boxes,
+ *   which adds one pen width to every gap).
  */
 
 /** Entry / exit point of a variant's join (glyph units), or null. */

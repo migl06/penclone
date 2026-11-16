@@ -163,20 +163,20 @@ def letters_em(occ, sc):
     return by
 
 
-def draw_word(strokes, widths, base_y, xh_pt, fn):
+def draw_word(strokes, widths, base_y, xh_pt, fn, px_per_xh=PX_PER_XH):
     """Rasterise one word (strokes in pt) into a fixed baseline-anchored window; 4x supersampled, black on white."""
     S = 4
-    k = PX_PER_XH / xh_pt * S
+    k = px_per_xh / xh_pt * S
     a = np.concatenate(strokes)
     x0 = a[:, 0].min() - 3 / k * S
     W = int(np.ceil((a[:, 0].max() - x0) * k + 3 * S))
-    H = int(round((WIN_TOP + WIN_BOT) * PX_PER_XH)) * S
+    H = int(round((WIN_TOP + WIN_BOT) * px_per_xh)) * S
     top = base_y - WIN_TOP * xh_pt
     img = Image.new('L', (max(W, S), H), 255)
     dr = ImageDraw.Draw(img)
     for s, w in zip(strokes, widths):
         px = [((x - x0) * k, (y - top) * k) for x, y in s]
-        r = max(w * PEN_XH * PX_PER_XH * S / 2, 0.5)
+        r = max(w * PEN_XH * px_per_xh * S / 2, 0.5)
         if len(px) > 1:
             dr.line(px, fill=0, width=int(round(2 * r)), joint='curve')
         for x, y in px[:: max(1, len(px) - 1)]:
@@ -184,9 +184,15 @@ def draw_word(strokes, widths, base_y, xh_pt, fn):
     img.resize((img.width // S, img.height // S), Image.LANCZOS).save(fn)
 
 
-def words(pages, man, xh_pt, widths_rel, out_dir):
-    """Write one image per word of every line; returns the number of words written."""
+OCR_PX_PER_XH = 30             # larger word images for text recognition (TrOCR resizes to 384 x 384)
+
+
+def words(pages, man, xh_pt, widths_rel, out_dir, ocr_dir=None):
+    """Write one image per word of every line (and a larger one plus labels.json for OCR); returns the number of words."""
     os.makedirs(out_dir, exist_ok=True)
+    if ocr_dir:
+        os.makedirs(ocr_dir, exist_ok=True)
+    labels = {}
     n = 0
     by_page = {}
     for li, ln in enumerate(man['lines']):
@@ -201,15 +207,22 @@ def words(pages, man, xh_pt, widths_rel, out_dir):
             if groups is None:
                 continue
             base = local_baseline(st, idx)
+            texts = ln['text'].split()
             for wi, g in enumerate(groups):
                 S = [st[i] for i in g]
                 cx = float(np.concatenate(S)[:, 0].mean())
-                draw_word(S, [widths_rel[i] for i in g], base(cx), xh_pt, os.path.join(out_dir, f'l{li:02d}w{wi:02d}.png'))
+                name = f'l{li:02d}w{wi:02d}.png'
+                draw_word(S, [widths_rel[i] for i in g], base(cx), xh_pt, os.path.join(out_dir, name))
+                if ocr_dir:
+                    draw_word(S, [widths_rel[i] for i in g], base(cx), xh_pt, os.path.join(ocr_dir, name), OCR_PX_PER_XH)
+                    labels[name] = texts[wi]
                 n += 1
+    if ocr_dir:
+        json.dump(labels, open(os.path.join(ocr_dir, 'labels.json'), 'w', encoding='utf-8'), ensure_ascii=False)
     return n
 
 
-def evaluate(pages, man, w, sc, xh_pt, widths=None, img_dir=None):
+def evaluate(pages, man, w, sc, xh_pt, widths=None, img_dir=None, ocr_dir=None):
     """All measurements of one written set (real or generated)."""
     n_letters = sum(len(ln['text'].replace(' ', '')) for ln in man['lines'])
     n_strokes = 0                      # only strokes of the lines in this set (a real page also holds the other fold)
@@ -235,7 +248,7 @@ def evaluate(pages, man, w, sc, xh_pt, widths=None, img_dir=None):
         med = float(np.median(widths))
         widths_rel = {i: float(x) / med for i, x in enumerate(widths)}
         width_cv = float(widths.std() / widths.mean())
-    n_words = words(pages, man, xh_pt, widths_rel, img_dir) if img_dir else 0
+    n_words = words(pages, man, xh_pt, widths_rel, img_dir, ocr_dir) if img_dir else 0
     return {
         'pen_lifts_per_letter': n_strokes / n_letters,
         'words_aligned': st['words_ok'] / max(st['words'], 1),
