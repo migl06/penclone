@@ -7,6 +7,8 @@ outside the repository so it survives updates and re-downloads:
         profile.json        name, languages, sample sources, rules, change log
         samples/<source>/   the sample PDF and its extracted pages (pg1.svg ...)
         glyphs.json         glyph library built from the samples + rules
+        glyphs-v2.json      glyph library from sample sheet v2 (+ report-v2.json)
+        layout.json         measured line habits from sample sheet v2: word gaps, baseline drift (measure_layout.py)
 
 How penclone improves:
   1. more samples   -> more variants per character, better proportions
@@ -18,6 +20,7 @@ How penclone improves:
 
 Usage:
     python3 profiles.py create NAME --pdf samples.pdf [--sheet alphabet-v1] [--lang de]
+    python3 profiles.py add-sample NAME --pdf written.pdf --manifest sheet.json   # written sample sheet v2 (sentences)
     python3 profiles.py list
     python3 profiles.py show NAME
     # optional overrides (normally not needed):
@@ -39,7 +42,8 @@ import sys
 import zipfile
 
 VERSION = 1
-SHEETS = {'alphabet-v1': 3}          # sample sheet type -> number of pages
+SHEETS = {'alphabet-v1': 3}          # sample sheet type -> number of pages (sample-v2 has as many pages as its manifest)
+V2 = 'sample-v2'                     # sample sheet v2: sentences, needs the manifest written by make_sheet.py
 OVERRIDE_KEYS = {
     'clean_dots': list,         # small marks of these chars become synthetic dots (default: marks stay as written)
     'blocked': dict,            # char -> ["<source>:p<page>", ...] variants not to use
@@ -115,6 +119,47 @@ def create(name, pdf, sheet='alphabet-v1', langs=('de',)):
     return P
 
 
+def add_sample_v2(name, pdf, manifest):
+    """Add a written sample sheet v2 (PDF with pen strokes + its manifest) to an existing profile."""
+    P = load(name)
+    if any(s['id'] == V2 for s in P['sources']):
+        sys.exit(f'profile {name} already has a {V2} source; remove it first or use another profile')
+    man = json.load(open(manifest, encoding='utf-8'))
+    src = source_dir(P, V2)
+    os.makedirs(src)
+    shutil.copy(pdf, os.path.join(src, 'written.pdf'))
+    shutil.copy(manifest, os.path.join(src, 'sheet.json'))
+    pages = max(l['page'] for l in man['lines'])
+    P['sources'].append({'id': V2, 'sheet': V2, 'file': 'written.pdf', 'pages': pages, 'sentences': len(man['lines']),
+                         'added': datetime.date.today().isoformat()})
+    log(P, f'add {V2} ({len(man["lines"])} sentences, {pages} pages) from {os.path.basename(pdf)}')
+    save(P)
+    return P
+
+
+def build_v2(P, limit=0.9):
+    """Build glyphs-v2.json from the sample-v2 source of a profile; the sheet-v1 glyphs (if built) serve as templates."""
+    src = source_dir(P, V2)
+    here = os.path.dirname(os.path.abspath(__file__))
+    out = os.path.join(P['_dir'], 'glyphs-v2.json')
+    cmd = [sys.executable, os.path.join(here, 'build_glyphs_v2.py'), '--pdf', os.path.join(src, 'written.pdf'),
+           '--manifest', os.path.join(src, 'sheet.json'), '--out', out,
+           '--report', os.path.join(P['_dir'], 'report-v2.json'), '--limit', str(limit)]
+    if os.path.isfile(glyphs_path(P)):
+        cmd += ['--templates', glyphs_path(P)]
+    else:
+        print('note: no sheet-v1 glyphs yet; sample-v2 is read without templates (joined letters are not recognised)')
+    rc = subprocess.run(cmd).returncode
+    if rc:
+        return rc
+    # line-level habits (word gaps, baseline drift) for the renderer, measured at the same x-height as the glyphs
+    rep = json.load(open(os.path.join(P['_dir'], 'report-v2.json'), encoding='utf-8'))
+    cmd = [sys.executable, os.path.join(here, 'measure_layout.py'), '--pdf', os.path.join(src, 'written.pdf'),
+           '--manifest', os.path.join(src, 'sheet.json'), '--xheight-pt', str(rep['xheight_pt']),
+           '--out', os.path.join(P['_dir'], 'layout.json')]
+    return subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode
+
+
 def set_chars(P, key, chars, add=True):
     cur = list(P['overrides'].get(key, []))
     for c in chars:
@@ -130,6 +175,8 @@ def main():
     sub = ap.add_subparsers(dest='cmd', required=True)
     c = sub.add_parser('create'); c.add_argument('name'); c.add_argument('--pdf', required=True)
     c.add_argument('--sheet', default='alphabet-v1'); c.add_argument('--lang', default='de')
+    sv = sub.add_parser('add-sample', help='add a written sample sheet v2'); sv.add_argument('name')
+    sv.add_argument('--pdf', required=True); sv.add_argument('--manifest', required=True)
     sub.add_parser('list')
     s = sub.add_parser('show'); s.add_argument('name')
     r = sub.add_parser('override', help='optional personal exception (normally not needed)'); r.add_argument('name')
@@ -146,12 +193,17 @@ def main():
     if a.cmd == 'create':
         P = create(a.name, a.pdf, a.sheet, a.lang.split(','))
         print('created', P['_dir'])
+    elif a.cmd == 'add-sample':
+        P = add_sample_v2(a.name, a.pdf, a.manifest)
+        print('added', V2, 'to', P['_dir'], '- now run: build', a.name)
     elif a.cmd == 'list':
         h = home()
         for n in sorted(os.listdir(h)) if os.path.isdir(h) else []:
             if os.path.isfile(os.path.join(h, n, 'profile.json')):
                 P = load(n)
                 built = 'built' if os.path.isfile(glyphs_path(P)) else 'not built'
+                if os.path.isfile(os.path.join(P['_dir'], 'glyphs-v2.json')):
+                    built += ' + v2'
                 print(f"{n:20s} {','.join(P['languages']):6s} {len(P['sources'])} source(s), {built}")
     elif a.cmd == 'show':
         P = load(a.name)
@@ -176,11 +228,17 @@ def main():
         log(P, f'override {a.cmd} {a.char} {a.variant}', a.why)
         save(P); print('blocked =', bl)
     elif a.cmd == 'build':
+        P = load(a.name)
         here = os.path.dirname(os.path.abspath(__file__))
-        cmd = [sys.executable, os.path.join(here, 'build_glyphs.py'), '--profile', a.name]
-        if a.no_fixes:
-            cmd.append('--no-fixes')
-        sys.exit(subprocess.run(cmd).returncode)
+        rc = 0
+        if any(x['id'] == 'alphabet-v1' for x in P['sources']):
+            cmd = [sys.executable, os.path.join(here, 'build_glyphs.py'), '--profile', a.name]
+            if a.no_fixes:
+                cmd.append('--no-fixes')
+            rc = subprocess.run(cmd).returncode
+        if rc == 0 and any(x['id'] == V2 for x in P['sources']):
+            rc = build_v2(P)
+        sys.exit(rc)
     elif a.cmd == 'export':
         P = load(a.name)
         shutil.make_archive(a.zip[:-4] if a.zip.endswith('.zip') else a.zip, 'zip', os.path.dirname(P['_dir']),

@@ -22,8 +22,9 @@ German version: [de/bekannte-probleme.md](de/bekannte-probleme.md).
    substitutes below 8 exact matches → target 6–8 variants for frequent characters.
 2. **Variants from alphabet rows, not words.** Letters in a row are written more carefully than in words, and first/last letters
    of a word are written differently (Srihari et al. 2002, cited by Haines). Glyphs carry no word position yet.
-3. **No line level.** Lines are perfectly straight and left-aligned; real writing drifts and returns (Haines: Kalman smoothing).
-   The baseline random walk also restarts at every text node.
+3. ~~**No line level.**~~ – **fixed** (P2): every line gets a slow baseline drift that returns to the line (Ornstein-Uhlenbeck
+   process), a small slope and a slightly varying start; word gaps vary. All of these are **measured from the writer's own sample
+   sheet v2** (`pipeline/measure_layout.py` → `layout.json` in the profile), see [research.md §13](research.md#13-line-habits-measured-from-the-writers-own-sample).
 4. **Deformation without a motor basis.** Two sine waves bend all strokes of a glyph alike. Research varies the movement
    (sigma-lognormal, ±15 % on µ and σ), which needs timestamps that PDF exports do not contain.
 5. **Strokes look digital.** Constant width; opacity varies per character instead of along the stroke; bold is a thicker line
@@ -34,13 +35,18 @@ German version: [de/bekannte-probleme.md](de/bekannte-probleme.md).
 
 1. ~~Page-specific row thresholds and a special case for swapped rows~~ – **fixed**: rows and their order are detected
    automatically (`pipeline/rows.py`).
-2. **The renderer depends on a host HTML page.** `engine/handwriting.js` is injected into a page that provides layout and a seeded
-   random generator. A DOM-free renderer (SVG/PDF output) is needed for the CLI, the MCP server and worksheet filling.
-3. **One `<span>` + one `<svg>` per character** → thousands of DOM nodes per page and large PDFs (several MB per page). Layout
-   needs an overflow tolerance because ink extends beyond the character box.
-4. **No hyphenation.** Words are unbreakable blocks; German compounds cause ragged lines or overflow.
-5. **One global random stream.** Changing one word changes the look of everything after it. Better: a seed per position.
-6. **Missing characters** fall back to a font, which breaks the style. Better: compose from existing glyphs.
+2. ~~**The renderer depends on a host HTML page.**~~ – **fixed** (P2): `engine/` lays out text and writes SVG and PDF itself, in
+   Node and in the browser, without DOM or dependencies (`penclone render`). The old injected renderer `engine/handwriting.js`
+   is kept only for existing HTML pages.
+3. ~~**One `<span>` + one `<svg>` per character**~~ – **fixed** (P2): one path per line and stroke width; strokes simplified to
+   0.02 mm and written as straight segments. A test page of 14 lines: 55 KB PDF (before: several MB per page).
+4. ~~**No hyphenation.**~~ – **fixed** (P2): Liang's algorithm with the TeX patterns `de-1996`. A word is split only if it would
+   otherwise leave a large gap at the end of the line (6 x-heights, assumption) or does not fit on a line of its own.
+5. ~~**One global random stream.**~~ – **fixed** (P2): every decision has its own stream keyed by what it decides (word text and
+   occurrence, line); editing a word leaves the other lines unchanged (tested).
+6. **Missing characters** – *partly fixed* (P2): typographic look-alikes (’ → ', — → –) and the base letter of accented letters
+   (é → e) are used and reported; anything else is left out and reported instead of falling back to a font. Still open: compose
+   new characters from existing strokes.
 7. **No measurement yet.** Parameters are set by eye; planned: OCR character error rate (legibility) and HWD (style similarity),
    see [research.md](research.md#8-measure-instead-of-guess).
 
@@ -49,8 +55,8 @@ German version: [de/bekannte-probleme.md](de/bekannte-probleme.md).
 | Step | What | Result |
 |---|---|---|
 | **P0** ✓ | A1, A2, A4, A6, A7 as general rules R1–R5; automatic row detection | done |
-| P1 | Sample sheet v2: given German sentences, mixed case, word positions; iPad capture page | fixes A3, A5, A8, B1, B2 at the root |
-| P2 | DOM-free engine: own layout + hyphenation, line model, per-position seeds, one path per line | C2–C5, B3 |
+| P1 | Sample sheet v2: given German sentences, mixed case, word positions; iPad capture page | fixes A3, A5, A8, B1, B2 at the root. **Done so far:** sheet generator, import and glyph build (`make_sheet.py`, `segment_v2.py`, `build_glyphs_v2.py`), tested with synthetic handwriting; **tested on one real sheet:** with a first glyph library as templates (`--templates`) 159 of 335 words aligned, lower-case letters mostly clean, i/Ä/ß still weak and the run takes ~100 s; **profile integration done** (`profiles.py add-sample`; `build` writes `glyphs-v2.json` next to the v1 glyphs; the new engine can use them with `--glyph-set v2|both`, default stays v1 until v2 is cleaner); **open:** iPad capture page, rules R3/R5 for v2, dot of the i, speed |
+| **P2** ✓ | DOM-free engine: own layout + hyphenation, line model measured from the sample, per-position seeds, one path per line; `penclone render` | C2–C5, B3 fixed, C6 partly |
 | P3 | Paper, pens, iPad output; CLI, MCP server and skill; worksheet filling | see [decisions.md](decisions.md) |
 | P4 | Measure: OCR error rate, HWD, blind test | justify parameters, validate R5 |
 | P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | thresholds no longer an assumption |

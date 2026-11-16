@@ -22,8 +22,10 @@ English version: [../known-issues.md](../known-issues.md).
    Ersatz erst unter 8 exakten Treffern → Ziel 6–8 Varianten für häufige Zeichen.
 2. **Varianten aus Alphabet-Reihen statt aus Wörtern.** In Reihen schreibt man ordentlicher als in Wörtern, und Anfangs- und
    Endbuchstaben schreibt man anders (Srihari et al. 2002, bei Haines zitiert). Glyphen haben noch keine Wortposition.
-3. **Keine Zeilenebene.** Zeilen sind exakt gerade und links bündig; echte Schrift driftet und kommt zurück (Haines:
-   Kalman-Glättung). Der Zufallslauf der Grundlinie startet außerdem bei jedem Textknoten neu.
+3. ~~**Keine Zeilenebene.**~~ – **behoben** (P2): Jede Zeile bekommt eine langsame Drift der Grundlinie, die zur Linie zurückkehrt
+   (Ornstein-Uhlenbeck-Prozess), eine kleine Schräge und einen leicht schwankenden Anfang; Wortabstände schwanken. All das ist
+   **aus dem eigenen Probeblatt v2 gemessen** (`pipeline/measure_layout.py` → `layout.json` im Profil), siehe
+   [recherche.md §13](recherche.md#13-zeilen-gewohnheiten-aus-der-eigenen-probe-gemessen).
 4. **Verformung ohne motorische Grundlage.** Zwei Sinuswellen verbiegen alle Striche eines Zeichens gleich. Die Forschung variiert
    die Bewegung (Sigma-Lognormal, ±15 % auf µ und σ) – dafür braucht es Zeitstempel, die PDF-Exporte nicht haben.
 5. **Strichbild wirkt digital.** Konstante Breite; Deckkraft schwankt pro Zeichen statt entlang des Strichs; fett ist eine dickere
@@ -34,13 +36,18 @@ English version: [../known-issues.md](../known-issues.md).
 
 1. ~~Seiten-spezifische Zeilen-Schwellen und ein Sonderfall für vertauschte Zeilen~~ – **behoben**: Zeilen und ihre Reihenfolge
    werden automatisch erkannt (`pipeline/rows.py`).
-2. **Der Renderer hängt an einer HTML-Seite.** `engine/handwriting.js` wird in eine Seite eingefügt, die Layout und einen
-   Zufallsgenerator liefert. Für CLI, MCP-Server und Arbeitsblätter braucht es einen Renderer ohne DOM (SVG/PDF-Ausgabe).
-3. **Ein `<span>` + ein `<svg>` pro Zeichen** → tausende DOM-Knoten pro Seite und große PDFs (mehrere MB pro Seite). Das Layout
-   braucht eine Überlauf-Toleranz, weil Tinte über die Zeichenbox hinausragt.
-4. **Keine Silbentrennung.** Wörter sind unteilbare Blöcke; deutsche Komposita erzeugen Flatterrand oder Überlauf.
-5. **Ein globaler Zufallsstrom.** Ein geändertes Wort ändert das Aussehen von allem danach. Besser: Seed pro Stelle.
-6. **Fehlende Zeichen** fallen auf eine Schriftart zurück → Stilbruch. Besser: aus vorhandenen Glyphen zusammensetzen.
+2. ~~**Der Renderer hängt an einer HTML-Seite.**~~ – **behoben** (P2): `engine/` setzt Text selbst und schreibt SVG und PDF, in Node
+   und im Browser, ohne DOM und ohne Abhängigkeiten (`penclone render`). Der alte eingefügte Renderer `engine/handwriting.js` bleibt
+   nur für bestehende HTML-Seiten.
+3. ~~**Ein `<span>` + ein `<svg>` pro Zeichen**~~ – **behoben** (P2): ein Pfad pro Zeile und Strichbreite; Striche auf 0,02 mm
+   vereinfacht und als gerade Segmente geschrieben. Testseite mit 14 Zeilen: 55 KB PDF (vorher mehrere MB pro Seite).
+4. ~~**Keine Silbentrennung.**~~ – **behoben** (P2): Liang-Algorithmus mit den TeX-Mustern `de-1996`. Getrennt wird nur, wenn sonst
+   am Zeilenende eine große Lücke bliebe (6 x-Höhen, Annahme) oder das Wort nicht einmal allein in eine Zeile passt.
+5. ~~**Ein globaler Zufallsstrom.**~~ – **behoben** (P2): Jede Entscheidung hat einen eigenen Strom, benannt nach dem, was sie
+   entscheidet (Wort und wievieltes Vorkommen, Zeile); ein geändertes Wort lässt die anderen Zeilen gleich (getestet).
+6. **Fehlende Zeichen** – *teilweise behoben* (P2): typografische Doppelgänger (’ → ', — → –) und der Grundbuchstabe bei Akzenten
+   (é → e) werden benutzt und gemeldet; alles andere wird weggelassen und gemeldet, statt auf eine Schriftart zurückzufallen.
+   Noch offen: neue Zeichen aus vorhandenen Strichen zusammensetzen.
 7. **Noch keine Messung.** Parameter nach Augenmaß; geplant: OCR-Zeichenfehlerrate (Lesbarkeit) und HWD (Stil-Ähnlichkeit),
    siehe [recherche.md](recherche.md#8-messen-statt-raten).
 
@@ -49,8 +56,8 @@ English version: [../known-issues.md](../known-issues.md).
 | Schritt | Was | Ergebnis |
 |---|---|---|
 | **P0** ✓ | A1, A2, A4, A6, A7 als allgemeine Regeln R1–R5; automatische Zeilenerkennung | erledigt |
-| P1 | Probeblatt v2: vorgegebene deutsche Sätze, Groß/klein gemischt, Wortpositionen; iPad-Aufnahmeseite | behebt A3, A5, A8, B1, B2 an der Wurzel |
-| P2 | Engine ohne DOM: eigenes Layout + Silbentrennung, Zeilenmodell, Seeds pro Stelle, ein Pfad pro Zeile | C2–C5, B3 |
+| P1 | Probeblatt v2: vorgegebene deutsche Sätze, Groß/klein gemischt, Wortpositionen; iPad-Aufnahmeseite | behebt A3, A5, A8, B1, B2 an der Wurzel. **Bisher fertig:** Blatt-Generator, Import und Glyphen-Bau (`make_sheet.py`, `segment_v2.py`, `build_glyphs_v2.py`), getestet mit synthetischer Handschrift; **an einem echten Blatt getestet:** mit einer ersten Glyphenbibliothek als Vorlage (`--templates`) 159 von 335 Wörtern zugeordnet, Kleinbuchstaben meist sauber, i/Ä/ß noch schwach, Laufzeit ca. 100 s; **Profil-Anbindung fertig** (`profiles.py add-sample`, `build` erzeugt `glyphs-v2.json` neben den v1-Glyphen; die neue Engine nutzt sie mit `--glyph-set v2|both`, Standard bleibt v1, bis v2 sauberer ist); **offen:** iPad-Aufnahmeseite, Regeln R3/R5 für v2, i-Punkt, Geschwindigkeit |
+| **P2** ✓ | Engine ohne DOM: eigenes Layout + Silbentrennung, Zeilenmodell aus der Probe gemessen, Seeds pro Stelle, ein Pfad pro Zeile; `penclone render` | C2–C5, B3 behoben, C6 teilweise |
 | P3 | Papier, Stifte, iPad-Ausgabe; CLI, MCP-Server und Skill; Arbeitsblätter ausfüllen | siehe [entscheidungen.md](entscheidungen.md) |
 | P4 | Messen: OCR-Fehlerrate, HWD, Blindtest | Parameter begründen, R5 bestätigen |
 | P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Schwellen keine Annahme mehr |

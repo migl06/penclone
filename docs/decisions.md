@@ -316,6 +316,35 @@ How the paper is chosen (first match wins):
 `penclone styles` lists built-in and own templates; the MCP tool `list_styles` returns them with small preview images so the AI
 can show the choice.
 
+## 13. The engine without a browser (P2)
+
+**Decision: plain JavaScript modules (with `// @ts-check` type comments) that run unchanged in Node and in the browser; no build
+step and no dependencies.** The same files serve the CLI, the planned MCP server and a future iPad page.
+
+| Part | File | What it does | Basis |
+|---|---|---|---|
+| Randomness | `engine/rng.js` | one random stream per decision, keyed by what is decided (word + which occurrence, line, hyphen) | known issue C5 |
+| Glyphs | `engine/glyphs.js` | loads v1/v2 libraries, measures the x-height, picks look-alikes for missing characters and reports them | – |
+| Words | `engine/shape.js` | variant choice (position in the word if the variants carry one), slight deformation, spacing by ink profile | earlier renderer; Haines et al. (positions) |
+| Hyphenation | `engine/hyphenate.js`, `engine/hyph/de-1996.js` | Liang's algorithm with the TeX patterns of hyph-utf8 (MIT) | Liang 1983 |
+| Lines and pages | `engine/layout.js` | greedy line filling (people write until the line is full), hyphenation only against large gaps, line model | measured habits, [research.md §13](research.md#13-line-habits-measured-from-the-writers-own-sample) |
+| Output | `engine/output.js` | SVG per page, PDF 1.4 with vector strokes; one path per line and stroke width | own comparison: straight segments look the same at 600 dpi, files 2.5× smaller |
+| Command line | `bin/penclone.js` | `penclone render`; `profile` and `sample-sheet` forward to the Python pipeline until P6 | parity rule §2 |
+
+Line model, in x-heights of the writer (defaults from `layout.json` in the profile, otherwise marked assumptions):
+
+| Value | migl06 (example) | Fallback |
+|---|---|---|
+| word gap (ink to ink), log-normal from median and quartiles | 1.45 (1.22–1.81) | 1.4 (1.15–1.75), assumption |
+| writing sits above the line | 0.23 | 0.2, assumption |
+| line slope | −0.1° ± 0.25° | 0° ± 0.25°, assumption |
+| slow baseline drift (sd, correlation length) | 0.15, 4.2 | 0.15, 4, assumption |
+| x-height | 2.33 mm | 2.5 mm, assumption |
+| start of the line, hyphenation gap, line spacing, margins | – | assumptions (not measurable on sample sheet v2) |
+
+Hyphenation is deliberately rare: a word is split only if moving it to the next line would leave more than 6 x-heights empty, or
+if it does not fit on a line at all. Handwriting is ragged; the threshold is an assumption to be checked in P4.
+
 ## Target architecture
 
 ```
@@ -324,7 +353,7 @@ writing sample ─┬─ iPad web capture (strokes + time + pressure, character 
                       │
                 pipeline/ (Python) ──► glyph library (JSON, local, private)
                                               │
-engine/ (JS/TS, no DOM):
+engine/ (JavaScript ES modules with type comments, no DOM, no dependencies):
   text ─► layout (line breaking + hyphenation) ─► writer model (glyph choice, spacing, baseline)
        ─► pen renderer (ballpoint | pencil | fineliner | ipad) ─► paper (blank | lined | squared | dotted) ─► SVG/PDF
                                               │
@@ -342,7 +371,7 @@ outputs: pdf · svg · png · xopp · excalidraw · inkml
 |---|---|---|
 | **P0** ✓ | Glyph bugs A1, A2, A4, A6, A7 ([known-issues.md](known-issues.md)) as general rules R1–R5; automatic row detection | done |
 | P1 | Sample v2: German sentences (pangram + frequent pairs), mixed case, word positions; iPad web capture | 6–8 variants, correct proportions |
-| P2 | DOM-free engine: layout + hyphenation, line model, per-position seeds, one path per line | smaller PDFs, stable output |
+| **P2** ✓ | DOM-free engine: layout + hyphenation, line model, per-position seeds, one path per line; `penclone render` | done: [§13](#13-the-engine-without-a-browser-p2) |
 | P3 | Paper + pens + iPad style; CLI, MCP server and skill with full parity | every step usable from the CLI, any MCP client or the skill |
 | P4 | Measure: OCR error rate (German TrOCR), HWD, blind test | parameters justified |
 | P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | thresholds no longer an assumption |

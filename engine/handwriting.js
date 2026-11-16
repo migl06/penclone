@@ -1,4 +1,5 @@
-/* penclone rendering engine (browser).
+/* LEGACY browser renderer, kept for existing HTML pages (e.g. the first study sheet). New code uses the DOM-free engine
+ * in this folder (index.js: layout, hyphenation, line model, SVG/PDF) - see docs/decisions.md §13.
  * Injected into a page that provides `rnd()` (seeded PRNG) and calls glyphSpan()/sk().
  * The build step replaces the GLYPHS placeholder with the glyph JSON.
  * Everything up to and including the line '//@ENGINE@' is stripped before injection. */

@@ -130,3 +130,67 @@ Gelesen: nur Suchzusammenfassungen und Projektseiten (nicht die vollständigen F
 | OneNote | Ink-API (Beta 2017) gibt Tinte als InkML aus und nimmt sie an. Heutiger Stand nicht geprüft. | [Microsoft-365-Dev-Blog](https://devblogs.microsoft.com/microsoft365dev/onenote-ink-beta-apis/) |
 | Xournal++ | `.xopp` = gzip-komprimiertes XML, im Kern das Xournal-`.xoj`-Format; Striche bleiben bearbeitbar. | [xournalpp](https://github.com/xournalpp/xournalpp) |
 | Excalidraw | Szenen sind JSON; Freihandlinien sind `freedraw`-Elemente mit Punktlisten, im Web (auch Safari am iPad) bearbeitbar. Hier nicht neu geprüft. | [excalidraw](https://github.com/excalidraw/excalidraw) |
+
+## 12. Öffentliche Handschriftdaten für einen ersten Test der Regeln (P5, Stufe 1)
+
+Gelesen: nur Datensatz-Seiten und Suchzusammenfassungen (Stand 16.11.2026). Lizenzen und Dateiformate vor der Nutzung auf den
+offiziellen Seiten prüfen. Daten aus diesen Sätzen kommen nie in dieses Repository; nur Auswertungsskripte, und jede Person lädt
+die Daten selbst herunter.
+
+| Datensatz | Inhalt | Bedingungen (wie gefunden) | Nutzen für penclone |
+|---|---|---|---|
+| [IAM On-Line Handwriting DB (IAM-OnDB)](https://fki.tic.heia-fr.ch/databases/iam-on-line-handwriting-database) | Englische Zeilen, Stiftbahnen, viele Schreiber | Frei für nicht-kommerzielle Forschung, Registrierung nötig ([Download](https://fki.tic.heia-fr.ch/databases/download-the-iam-on-line-handwriting-database)) | Statistiken zu Grundlinie, x-Höhe, Punkten aus echten Strichen |
+| [DeepWriting](https://www.github.com/emreaksan/deepwriting) (Aksan et al., CHI 2018) | 294 Schreiber, 85.181 Wörter, segmentiert, `.npz` | Basiert auf IAM-OnDB: IAM-Registrierung und Zitierpflicht; Lizenz der Projektseite nicht geprüft | Striche auf Wort- und Zeichenebene ohne eigene Segmentierung |
+| [CVL Database](https://cvl.tuwien.ac.at/research/cvl-databases/an-off-line-database-for-writer-retrieval-writer-identification-and-word-spotting/) | Scans (300 dpi), etwa 310 Schreiber, 1 deutscher und 6 englische Texte | Angegeben als CC BY-NC 3.0; volle Bedingungen nicht geprüft | Einzige Offline-Quelle mit deutschem Text; Bilder, Zeichen müssten ausgeschnitten werden |
+| [IAM Handwriting DB](https://fki.tic.heia-fr.ch/databases/iam-handwriting-database) | Englische Textzeilen als Bilder | Registrierung, nicht-kommerziell | Nur Bilder, keine Striche |
+
+Grenzen:
+
+- Die Sätze enthalten abgeschriebenen Text, keine Musterblätter. Getestet werden die **Größen- und Positionsstatistiken** der
+  Regeln (R1–R4), nicht das Blattlayout. R5 (verwechselbare Varianten) braucht mehrere Varianten je Zeichen desselben
+  Schreibers, die die Sätze nur für häufige Buchstaben liefern.
+- Die Schreiber kopieren einen vorgegebenen Text; Nutzer von penclone schreiben Sätze für das Musterblatt. Unterschiede sind zu
+  erwarten.
+- Stufe 1 (öffentliche Daten) zeigt, ob die Regeln plausibel sind. Stufe 2 (Freiwillige, `penclone validate`) bleibt nötig, weil
+  nur sie den echten Eingabeweg von penclone misst.
+
+### Ergebnis Stufe 1 (IAM-OnDB, 16.11.2026, `tools/iam_validate.py`)
+
+144 von 197 Schreibern hatten genug verwertbare Wörter (alle Zahlen je Schreiber, relativ zur eigenen x-Höhe; Zeichen sind
+nicht den Strichen zugeordnet, deshalb dienen Wörter mit bekannten höchsten/tiefsten Buchstaben, siehe
+`pipeline/validate_stats.py`):
+
+| Statistik | Schreiber | 5 % / Median / 95 % | Vergleich |
+|---|---|---|---|
+| Oberlänge / x-Höhe | 144 | 1,31 / 1,58 / 2,06 | Autor von penclone: 1,5–1,6 (passt) |
+| Großbuchstabe / x-Höhe | 48 | 1,44 / 1,81 / 2,43 | Autor: etwa 1,5 (am kurzen Ende; nur 48 Schreiber mit genug Wörtern) |
+| Tiefster Punkt unter der Grundlinie, 95. Perzentil, Wörter ohne Unterlänge (in x-Höhen) | 144 | 0,18 / 0,27 / 0,43 | R3 erlaubt etwa 0,14 (0,06 em bei x-Höhe 0,42 em) |
+
+Lesart: Groß- und Oberlängen-Verhältnisse des ersten Schreibers liegen im Bereich der IAM-Schreiber. Die R3-Toleranz ist
+**enger** als der Überhang der meisten IAM-Schreiber; die Messung enthält aber Fehler durch Wort-Trennung und Grundlinien-Fit,
+und IAM ist überwiegend verbundene Schrift. Das ist also **noch kein Beleg gegen R3**, sondern zeigt, dass R3 mit Daten auf
+Zeichenebene geprüft werden muss, bevor es auf Schreiber mit verbundener Schrift angewendet wird (geplant, P5).
+
+## 13. Zeilen-Gewohnheiten aus der eigenen Probe gemessen
+
+Woher das Zeilenmodell der Engine (P2) seine Zahlen hat – Belegart 2 der Belege-Regel. `pipeline/measure_layout.py` liest das
+geschriebene Probeblatt v2 (ein bekannter Satz pro Linie) und schreibt `layout.json` ins Profil; die Engine nimmt das als
+Standardwerte. Alle Längen in x-Höhen des Schreibers.
+
+| Größe | Verfahren | Hinweis |
+|---|---|---|
+| Wortabstand | Weißraum zwischen der Tinte benachbarter Wörter; Wörter über die k−1 breitesten Lücken einer Zeile mit k Wörtern. Eine Zeile zählt nur, wenn jedes Wort ab 3 Buchstaben eine plausible Breite pro Buchstabe hat (0,5–2× Zeilen-Median). | Tinte zu Tinte, genau so setzt die Engine Wörter |
+| Lage und Schräge der Grundlinie | Unterkante jedes Zeichen-Clusters (≥ ½ x-Höhe; Unterlängen raus, wenn > 0,3 x-Höhen unter dem Median der 9 nächsten Cluster), verglichen mit der Linie; Geraden-Fit pro Zeile | |
+| Drift | Reste nach dem Geraden-Fit, aufgeteilt in **Zittern pro Buchstabe** und **langsame Drift** mit einem exponentiellen Variogramm γ(h) = Nugget + Sill·(1 − e^(−h/Reichweite)), angepasst an Matherons Schätzer über alle Zeilen | die exponentielle Kovarianz gehört zu einem Ornstein-Uhlenbeck-Prozess (Zufallslauf, der zur Linie zurückgezogen wird – das stetige Gegenstück zum Kalman-Modell bei Haines et al.). Die Glyphen behalten das Zittern der Buchstaben, aus denen sie stammen; die Engine fügt nur die Drift hinzu. |
+
+Erster Schreiber (migl06, 34 Zeilen, x-Höhe 2,33 mm): Wortabstand Median 1,45 (Quartile 1,22–1,81, 159 Lücken aus 19 Zeilen);
+Schrift sitzt 0,23 über der Linie; Schräge −0,10° ± 0,25°; Zittern sd 0,14, Drift sd 0,15 mit Korrelationslänge 4,2 x-Höhen.
+
+Grenzen: Das Blatt legt Zeilenanfang und Zeilenabstand fest; Zeilenanfang, Zeilenabstand und Ränder sind darauf nicht messbar und
+bleiben Annahmen. Eine erste Version glättete die Grundlinie mit dem Median über 9 Cluster und maß danach die Korrelationslänge;
+die ≈ 6 x-Höhen waren die Fensterbreite der Glättung, nicht die des Schreibers – deshalb das Variogramm.
+
+Verwendete Verfahren, für dieses Projekt nicht neu gelesen (Standard): Liangs Silbentrennung (F. M. Liang, *Word Hy-phen-a-tion
+by Com-put-er*, Stanford 1983) mit den hyph-utf8-Mustern `de-1996` (gelesen: Dateikopf – MIT-Lizenz, Version 28.02.2024,
+36.709 Muster); Linienvereinfachung nach Ramer–Douglas–Peucker (Ramer 1972; Douglas & Peucker 1973), Toleranz 0,02 mm;
+Ornstein-Uhlenbeck-Prozess und Matherons Variogramm-Schätzer.

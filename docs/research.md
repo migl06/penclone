@@ -127,3 +127,65 @@ Read: search summaries and project pages only (not the formats' full specs).
 | OneNote | Ink beta API (2017) returns and accepts ink as InkML (integer coordinates in himetric units). Status today not verified. | [Microsoft 365 dev blog](https://devblogs.microsoft.com/microsoft365dev/onenote-ink-beta-apis/) |
 | Xournal++ | `.xopp` = gzip-compressed XML, essentially the Xournal `.xoj` format; strokes stay editable. | [xournalpp](https://github.com/xournalpp/xournalpp) |
 | Excalidraw | Scenes are JSON; hand-drawn lines are `freedraw` elements with point lists, editable in the web app (also on iPad Safari). Not re-checked here. | [excalidraw](https://github.com/excalidraw/excalidraw) |
+
+## 12. Public handwriting data for a first check of the rules (P5, stage 1)
+
+Read: dataset pages and search summaries only (checked 2026-11-16). Licences and file formats must be re-checked on the
+official pages before use. Data from these sets is never committed to this repository; only analysis scripts are, and everyone
+downloads the data themselves.
+
+| Dataset | Content | Terms (as found) | Use for penclone |
+|---|---|---|---|
+| [IAM On-Line Handwriting DB (IAM-OnDB)](https://fki.tic.heia-fr.ch/databases/iam-on-line-handwriting-database) | English lines, pen trajectories, many writers | Free for non-commercial research; registration required ([download](https://fki.tic.heia-fr.ch/databases/download-the-iam-on-line-handwriting-database)) | Statistics on baseline, x-height, dots from real strokes |
+| [DeepWriting](https://www.github.com/emreaksan/deepwriting) (Aksan et al., CHI 2018) | 294 writers, 85,181 word instances, segmented, `.npz` | Built on IAM-OnDB: IAM registration and citation required; project-page licence not verified | Word- and character-level strokes without own segmentation |
+| [CVL Database](https://cvl.tuwien.ac.at/research/cvl-databases/an-off-line-database-for-writer-retrieval-writer-identification-and-word-spotting/) | Scans (300 dpi), about 310 writers, 1 German and 6 English texts | Reported as CC BY-NC 3.0; full terms not verified | Only offline source with German text; images, so glyph cutting needed |
+| [IAM Handwriting DB](https://fki.tic.heia-fr.ch/databases/iam-handwriting-database) | English text lines as images | Registration, non-commercial | Images only; no strokes |
+
+Limits:
+
+- These sets contain copied text, not sample sheets. They test the **size and position statistics** of the rules (R1–R4), not
+  the sheet layout. R5 (confusable variants) needs several variants per character from the same writer, which the sets give only
+  for frequent letters.
+- Writers copy a given text; users of penclone write sentences for the sample sheet. Differences between the two are expected.
+- Stage 1 (public data) shows whether the rules are plausible. Stage 2 (volunteers, `penclone validate`) is still needed because
+  only it measures the actual input path of penclone.
+
+### Stage 1 result (IAM-OnDB, 2026-11-16, `tools/iam_validate.py`)
+
+144 of 197 writers had enough usable words (the numbers are per writer, all relative to the writer's own x-height; characters
+are not aligned to strokes, so words with known tallest/lowest letters are used, see `pipeline/validate_stats.py`):
+
+| Statistic | Writers | 5 % / median / 95 % | Compare |
+|---|---|---|---|
+| Ascender height / x-height | 144 | 1.31 / 1.58 / 2.06 | penclone author: 1.5–1.6 (consistent) |
+| Capital height / x-height | 48 | 1.44 / 1.81 / 2.43 | penclone author: about 1.5 (at the short end; only 48 writers had enough words) |
+| Lowest point below the baseline, 95th percentile, words without descender (in x-heights) | 144 | 0.18 / 0.27 / 0.43 | R3 tolerates about 0.14 (0.06 em at x-height 0.42 em) |
+
+Reading: capital and ascender proportions of the first writer fall inside the range of IAM writers, so sample sheet v2 should not
+be expected to hit a different range. The R3 tolerance is **narrower** than the overshoot of most IAM writers; but the measure
+includes errors from word splitting and the baseline fit, and IAM is largely cursive, so this is **not yet evidence against R3** –
+it shows that R3 must be checked with character-level data before it is applied to writers with joined letters (planned, P5).
+
+## 13. Line habits measured from the writer's own sample
+
+How the line model of the engine (P2) gets its numbers – evidence type 2 of the evidence policy. `pipeline/measure_layout.py`
+reads the written sample sheet v2 (one known sentence per ruled line) and writes `layout.json` into the profile; the engine uses
+it as its defaults. All lengths are in x-heights of the writer.
+
+| Quantity | Method | Note |
+|---|---|---|
+| Word gap | white space between the ink of neighbouring words; words found by the k−1 widest gaps of a line with k words. A line counts only if every word of 3+ letters has a plausible width per letter (0.5–2× the line median). | ink to ink, the same way the engine places words |
+| Baseline offset and slope | bottom of every character cluster (≥ ½ x-height; descenders dropped when > 0.3 x-heights below the median of the 9 nearest clusters), compared with the ruled line; straight-line fit per line | |
+| Drift | residuals after the line fit, split into **jitter per letter** and a **slow drift** with an exponential variogram γ(h) = nugget + sill·(1 − e^(−h/range)) fitted to Matheron's estimator pooled over all lines | the exponential covariance is the one of an Ornstein-Uhlenbeck process (a random walk pulled back to the line, the continuous counterpart of the Kalman model in Haines et al.). The glyphs keep the jitter of the letters they were cut from, so the engine adds only the drift. |
+
+First writer (migl06, 34 lines, x-height 2.33 mm): word gap median 1.45 (quartiles 1.22–1.81, 159 gaps from 19 lines); writing
+sits 0.23 above the line; slope −0.10° ± 0.25°; jitter sd 0.14, drift sd 0.15 with a correlation length of 4.2 x-heights.
+
+Limits: the sheet fixes where a line starts and how far apart lines are, so line start, line spacing and margins cannot be
+measured from it and stay assumptions. A first version smoothed the baseline with the 9-cluster median before measuring the
+correlation length; that length (≈ 6 x-heights) was the width of the smoothing window, not the writer's – hence the variogram.
+
+Methods used, not re-read for this project (standard results): Liang's hyphenation algorithm (F. M. Liang, *Word Hy-phen-a-tion
+by Com-put-er*, Stanford 1983) with the hyph-utf8 patterns `de-1996` (read: file header – MIT licence, version 2024-02-28,
+36,709 patterns); Ramer–Douglas–Peucker line simplification (Ramer 1972; Douglas & Peucker 1973), tolerance 0.02 mm; the
+Ornstein-Uhlenbeck process and Matheron's variogram estimator.

@@ -13,8 +13,9 @@ and boxes and circles are drawn by hand.
 
 Typical uses: study notes, letters and cards, mockups, a personal handwriting font.
 
-> **Status: early.** Working today: glyph pipeline, handwriting profiles, quality report, a browser renderer that renders full
-> pages. Planned: CLI, MCP server, skill, paper and pen styles, iPad output. Known problems and the plan:
+> **Status: early.** Working today: glyph pipeline, handwriting profiles, quality report, and `penclone render`, which writes
+> text in your handwriting as PDF or SVG without a browser (layout, German hyphenation, a line model measured from your samples).
+> Planned: MCP server, skill, paper and pen styles, iPad output. Known problems and the plan:
 > [docs/known-issues.md](docs/known-issues.md), [docs/decisions.md](docs/decisions.md).
 
 ## Built on research, not guesswork
@@ -27,11 +28,12 @@ Every feature and default comes from a cited source, from a measurement of your 
 | Several variants per letter, no visible repeats | People notice repeated glyphs; good synthesis draws glyph choices randomly and only falls back to substitutes when fewer than 8 exact samples exist. | Haines, Mac Aodha, Brostow: *My Text in Your Handwriting*, ACM TOG 2016 |
 | Samples written as sentences, not alphabet rows | First and last letters of a word are written differently; unfamiliar text makes writers hesitate and changes the writing; sample text is chosen by letter and letter-pair frequency. | Haines et al. 2016 (citing Srihari et al. 2002) |
 | Baseline drifts and comes back | Writers stay near the rule but drift in arcs as the hand pivots; modelled with Kalman smoothing along the line. | Haines et al. 2016 |
+| Drift, slope and word gaps are yours | Measured on your own sample sheet: baseline drift as a random walk pulled back to the line (Ornstein-Uhlenbeck, fitted with a variogram), word gaps ink to ink. | own measurement, [research §13](docs/research.md#13-line-habits-measured-from-the-writers-own-sample) |
 | Natural variation from movement | Human-like variants of a word: perturb the timing parameters µ and σ of the sigma-lognormal model by ±15 %. | Martín-Albo, Plamondon, Vidal, ICFHR 2014 |
 | Ballpoint look | Ink deposit depends on pen force and speed; ballpoint paste shows typical inner-trace patterns. | Franke & Rose, Ink-Deposition Model, IWFHR 2004 |
 | Pencil look | Result depends on lead composition, paper texture and pressure. | Sousa & Buchanan, Computer Graphics Forum 2000 |
 | iPad look | Stroke width from simulated pressure (thinning, smoothing, taper). | perfect-freehand |
-| German hyphenation | Liang's algorithm with TeX patterns (`de-1996`); German needs it more because of long compounds. | Hyphenopoly, hyphen |
+| German hyphenation | Liang's algorithm with TeX patterns (`de-1996`, hyph-utf8, MIT); German needs it more because of long compounds. | Liang 1983; hyph-utf8 |
 | Most frequent German letter pairs covered in samples | ER, EN, CH, DE, EI, ND, TE, IN, IE, GE. | University of Wuppertal / HU Berlin tables |
 | Spacing by white area | Type designers space letters by the white area next to them, not by the closest point. | HT Letterspacer |
 | Measuring legibility and style | German handwriting recogniser (TrOCR, 4.1 % character error rate on its test set); HWD scores handwriting style better than FID. | fhswf/TrOCR_german_handwritten; Pippi et al., BMVC 2023 |
@@ -59,7 +61,24 @@ as a last resort and are normally empty. No neural network is trained.
 **Teaching it your handwriting:** write the given sample sentences – not free text, not alphabet rows – normally and at normal
 speed, about 2–4 pages ([why](docs/decisions.md#7-teaching-penclone-your-handwriting-guided-sentences)).
 
-## Everything adjustable (planned)
+## Writing text (working)
+
+```bash
+penclone render notes.txt --profile me -o notes.pdf                 # or: node bin/penclone.js render …
+penclone render notes.txt --profile me --page a5 --margin 12 --size 2.5mm --line-spacing 7.1mm -o notes.svg
+echo "Hallo Welt" | penclone render - --profile me -o hallo.pdf
+```
+
+Every line break in the text starts a new line; an empty line stays empty. penclone reports characters your samples do not
+contain (they are left out, never replaced by a font) and look-alikes it used instead (’ → '). The same `--seed` gives the same
+result, and changing one word leaves the other lines unchanged. Word gaps, baseline drift, slope and the default size come from
+your sample sheet v2 when the profile has one; otherwise the defaults are marked assumptions
+([details](docs/decisions.md#13-the-engine-without-a-browser-p2)).
+
+## Everything adjustable (partly planned)
+
+Working now: `--page`, `--margin`, `--size`, `--line-spacing`, `--color`, `--seed`, `--lang`, `--no-hyphenation`, output `.pdf`
+and `.svg`. Planned:
 
 | Option | Values |
 |---|---|
@@ -81,14 +100,15 @@ there because the format is closed ([details](docs/decisions.md#editable-on-the-
 ## How it works
 
 ```
-samples (iPad PDF) ──► profile ──pipeline/──► glyphs.json ──engine/──► HTML/SVG ──► PDF
+samples (iPad PDF) ──► profile ──pipeline/──► glyphs.json + layout.json ──engine/──► SVG / PDF
 ```
 
 1. **Extract** (`pipeline/svg_strokes.py`): every stroked path becomes a polyline.
 2. **Segment** (`pipeline/rows.py`, `build_glyphs.py`): rows by vertical gaps, characters by overlapping x-ranges.
 3. **Normalise and apply the general rules**: baseline, x-height, punctuation heights, smoothing, slant; rules R1–R5.
-4. **Render** (`engine/handwriting.js`): random variant per character, damped random walk for baseline/size/rotation, pressure per
-   word and letter, spacing from the ink profile.
+4. **Lay out and render** (`engine/`, no browser needed): random variant per character with its own random stream per word,
+   damped random walk for size/rotation, pressure per word and letter, spacing from the ink profile; lines filled like by hand,
+   German hyphenation against large gaps, baseline drift and slope per line; SVG and PDF with one path per line.
 
 The sample sheet layout (v1) is described in [samples/README.md](samples/README.md).
 

@@ -13,8 +13,9 @@ gesetzt, damit sie sich nie berühren, und Kästen und Kreise sind von Hand geze
 
 Gedacht für: Lernzettel, Briefe und Karten, Mockups, eine eigene Handschrift-Schriftart.
 
-> **Stand: früh.** Funktioniert: Glyphen-Pipeline, Handschrift-Profile, Qualitätsbericht, Browser-Renderer (rendert ganze
-> Seiten). Geplant: CLI, MCP-Server, Skill, Papier- und Stiftstile, iPad-Ausgabe. Probleme und Plan:
+> **Stand: früh.** Funktioniert: Glyphen-Pipeline, Handschrift-Profile, Qualitätsbericht und `penclone render`, das Text in deiner
+> Schrift als PDF oder SVG schreibt, ohne Browser (Layout, deutsche Silbentrennung, Zeilenmodell aus deinen Proben gemessen).
+> Geplant: MCP-Server, Skill, Papier- und Stiftstile, iPad-Ausgabe. Probleme und Plan:
 > [docs/de/bekannte-probleme.md](docs/de/bekannte-probleme.md), [docs/de/entscheidungen.md](docs/de/entscheidungen.md).
 
 ## Auf Forschung gebaut, nicht geraten
@@ -27,11 +28,12 @@ Annahme markiert ([Belege statt Raten](docs/de/entscheidungen.md#5-belege-statt-
 | Mehrere Varianten pro Buchstabe, keine sichtbaren Wiederholungen | Menschen bemerken wiederholte Glyphen; gute Synthese wählt zufällig und greift erst auf Ersatz zurück, wenn es weniger als 8 exakte Proben gibt. | Haines, Mac Aodha, Brostow: *My Text in Your Handwriting*, ACM TOG 2016 |
 | Proben als Sätze statt Alphabet-Reihen | Anfangs- und Endbuchstaben werden anders geschrieben; ungewohnter Text lässt Schreiber stocken und verändert die Schrift; Probetext wird nach Buchstaben- und Paarhäufigkeit gewählt. | Haines et al. 2016 (mit Verweis auf Srihari et al. 2002) |
 | Grundlinie wandert und kommt zurück | Man bleibt nahe der Linie, driftet aber in Bögen, weil die Hand dreht; modelliert mit Kalman-Glättung entlang der Zeile. | Haines et al. 2016 |
+| Drift, Schräge und Wortabstände sind deine | Auf deinem eigenen Probeblatt gemessen: Drift der Grundlinie als Zufallslauf, der zur Linie zurückgezogen wird (Ornstein-Uhlenbeck, per Variogramm angepasst), Wortabstände Tinte zu Tinte. | eigene Messung, [Recherche §13](docs/de/recherche.md#13-zeilen-gewohnheiten-aus-der-eigenen-probe-gemessen) |
 | Natürliche Variation aus der Bewegung | Menschenähnliche Varianten eines Wortes: Zeitparameter µ und σ des Sigma-Lognormal-Modells um ±15 % stören. | Martín-Albo, Plamondon, Vidal, ICFHR 2014 |
 | Kugelschreiber-Look | Tintenmenge hängt von Druck und Geschwindigkeit ab; Kuli-Paste zeigt typische Spurmuster. | Franke & Rose, Ink-Deposition Model, IWFHR 2004 |
 | Bleistift-Look | Ergebnis hängt von Mine, Papierstruktur und Druck ab. | Sousa & Buchanan, Computer Graphics Forum 2000 |
 | iPad-Look | Strichbreite aus simuliertem Druck (thinning, smoothing, taper). | perfect-freehand |
-| Deutsche Silbentrennung | Liang-Algorithmus mit TeX-Mustern (`de-1996`); im Deutschen wegen langer Komposita besonders wichtig. | Hyphenopoly, hyphen |
+| Deutsche Silbentrennung | Liang-Algorithmus mit TeX-Mustern (`de-1996`, hyph-utf8, MIT); im Deutschen wegen langer Komposita besonders wichtig. | Liang 1983; hyph-utf8 |
 | Häufigste deutsche Buchstabenpaare in den Proben | ER, EN, CH, DE, EI, ND, TE, IN, IE, GE. | Tabellen Uni Wuppertal / HU Berlin |
 | Abstände nach weißer Fläche | Schriftgestalter setzen Abstände nach der Fläche neben dem Buchstaben, nicht nach der engsten Stelle. | HT Letterspacer |
 | Lesbarkeit und Stil messen | Deutscher Handschrift-Erkenner (TrOCR, 4,1 % Zeichenfehlerrate auf seinem Testset); HWD bewertet Handschrift-Stil besser als FID. | fhswf/TrOCR_german_handwritten; Pippi et al., BMVC 2023 |
@@ -60,7 +62,24 @@ trainiert.
 **Deine Schrift beibringen:** die vorgegebenen Probesätze schreiben – keinen freien Text, keine Alphabet-Reihen –, normal und in
 normalem Tempo, etwa 2–4 Seiten ([warum](docs/de/entscheidungen.md#7-penclone-deine-schrift-beibringen-vorgegebene-sätze)).
 
-## Alles einstellbar (geplant)
+## Text schreiben (funktioniert)
+
+```bash
+penclone render notizen.txt --profile ich -o notizen.pdf            # oder: node bin/penclone.js render …
+penclone render notizen.txt --profile ich --page a5 --margin 12 --size 2.5mm --line-spacing 7.1mm -o notizen.svg
+echo "Hallo Welt" | penclone render - --profile ich -o hallo.pdf
+```
+
+Jeder Zeilenumbruch im Text beginnt eine neue Zeile; eine leere Zeile bleibt leer. penclone meldet Zeichen, die in deinen Proben
+fehlen (sie werden weggelassen, nie durch eine Schriftart ersetzt), und Doppelgänger, die es stattdessen genommen hat (’ → ').
+Derselbe `--seed` gibt dasselbe Ergebnis, und ein geändertes Wort lässt die anderen Zeilen gleich. Wortabstände, Drift der
+Grundlinie, Schräge und die Standardgröße kommen aus deinem Probeblatt v2, wenn das Profil eins hat; sonst sind die Standardwerte
+als Annahme markiert ([Details](docs/de/entscheidungen.md#13-die-engine-ohne-browser-p2)).
+
+## Alles einstellbar (teils geplant)
+
+Schon jetzt: `--page`, `--margin`, `--size`, `--line-spacing`, `--color`, `--seed`, `--lang`, `--no-hyphenation`, Ausgabe `.pdf`
+und `.svg`. Geplant:
 
 | Option | Werte |
 |---|---|

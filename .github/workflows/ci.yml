@@ -33,6 +33,11 @@ jobs:
           python pipeline/profiles.py --help
           python pipeline/build_glyphs.py --help
           python tools/glyph_report.py --help
+          python pipeline/make_sheet.py --help
+          python pipeline/build_glyphs_v2.py --help
+          python pipeline/measure_layout.py --help
+      - name: Sample sheet v2 round trip (synthetic handwriting)
+        run: python tests/test_sheet_v2.py
       - name: Profile round trip (no samples needed)
         run: |
           export PENCLONE_HOME="$RUNNER_TEMP/penclone"
@@ -46,3 +51,7 @@ jobs:
           python pipeline/profiles.py list
       - name: Engine syntax
         run: node --check engine/handwriting.js
+      - name: Engine tests (synthetic handwriting)
+        run: node --test tests/*.test.mjs
+      - name: penclone command line starts
+        run: node bin/penclone.js help

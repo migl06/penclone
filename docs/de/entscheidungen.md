@@ -317,6 +317,35 @@ Wie das Papier gewählt wird (das erste Zutreffende gilt):
 `penclone styles` listet eingebaute und eigene Vorlagen; das MCP-Werkzeug `list_styles` liefert sie mit kleinen Vorschaubildern,
 damit die KI die Auswahl zeigen kann.
 
+## 13. Die Engine ohne Browser (P2)
+
+**Entscheidung: einfache JavaScript-Module (mit `// @ts-check`-Typ-Kommentaren), die unverändert in Node und im Browser laufen; kein
+Build-Schritt, keine Abhängigkeiten.** Dieselben Dateien dienen der CLI, dem geplanten MCP-Server und einer späteren iPad-Seite.
+
+| Teil | Datei | Was es tut | Grundlage |
+|---|---|---|---|
+| Zufall | `engine/rng.js` | ein Zufallsstrom pro Entscheidung, benannt nach dem, was entschieden wird (Wort + wievieltes Vorkommen, Zeile, Trennstrich) | bekanntes Problem C5 |
+| Glyphen | `engine/glyphs.js` | lädt v1/v2-Bibliotheken, misst die x-Höhe, nimmt Doppelgänger für fehlende Zeichen und meldet sie | – |
+| Wörter | `engine/shape.js` | Variantenwahl (Position im Wort, falls die Varianten eine haben), leichte Verformung, Abstand nach Tinten-Profil | bisheriger Renderer; Haines et al. (Positionen) |
+| Silbentrennung | `engine/hyphenate.js`, `engine/hyph/de-1996.js` | Liang-Algorithmus mit den TeX-Mustern aus hyph-utf8 (MIT) | Liang 1983 |
+| Zeilen und Seiten | `engine/layout.js` | Zeile füllen, bis sie voll ist (wie beim Schreiben), Trennung nur gegen große Lücken, Zeilenmodell | gemessene Gewohnheiten, [recherche.md §13](recherche.md#13-zeilen-gewohnheiten-aus-der-eigenen-probe-gemessen) |
+| Ausgabe | `engine/output.js` | SVG pro Seite, PDF 1.4 mit Vektorstrichen; ein Pfad pro Zeile und Strichbreite | eigener Vergleich: gerade Segmente sehen bei 600 dpi gleich aus, Dateien 2,5× kleiner |
+| Kommandozeile | `bin/penclone.js` | `penclone render`; `profile` und `sample-sheet` leiten bis P6 an die Python-Pipeline weiter | Regel „alles überall“ §2 |
+
+Zeilenmodell, in x-Höhen des Schreibers (Standardwerte aus `layout.json` im Profil, sonst als Annahme markiert):
+
+| Wert | migl06 (Beispiel) | Ersatzwert |
+|---|---|---|
+| Wortabstand (Tinte zu Tinte), log-normal aus Median und Quartilen | 1,45 (1,22–1,81) | 1,4 (1,15–1,75), Annahme |
+| Schrift sitzt über der Linie | 0,23 | 0,2, Annahme |
+| Schräge der Zeile | −0,1° ± 0,25° | 0° ± 0,25°, Annahme |
+| langsame Drift der Grundlinie (Streuung, Korrelationslänge) | 0,15, 4,2 | 0,15, 4, Annahme |
+| x-Höhe | 2,33 mm | 2,5 mm, Annahme |
+| Zeilenanfang, Trenn-Lücke, Zeilenabstand, Ränder | – | Annahmen (auf Probeblatt v2 nicht messbar) |
+
+Getrennt wird absichtlich selten: nur wenn das Wort in der nächsten Zeile mehr als 6 x-Höhen leer zurückließe oder gar nicht in eine
+Zeile passt. Handschrift hat Flatterrand; die Schwelle ist eine Annahme und wird in P4 geprüft.
+
 ## Zielarchitektur
 
 ```
@@ -325,7 +354,7 @@ Schreibprobe ─┬─ iPad-Webaufnahme (Striche + Zeit + Druck, Zeichen bekannt
                     │
               pipeline/ (Python) ──► Glyphen-Bibliothek (JSON, lokal, privat)
                                             │
-engine/ (JS/TS, ohne DOM):
+engine/ (JavaScript-Module mit Typ-Kommentaren, ohne DOM, ohne Abhängigkeiten):
   Text ─► Layout (Zeilenumbruch + Silbentrennung) ─► Schreiber-Modell (Glyphenwahl, Abstände, Grundlinie)
        ─► Stift-Renderer (ballpoint | pencil | fineliner | ipad) ─► Papier (blank | lined | squared | dotted) ─► SVG/PDF
                                             │
@@ -343,7 +372,7 @@ Ausgaben: pdf · svg · png · xopp · excalidraw · inkml
 |---|---|---|
 | **P0** ✓ | Glyphen-Fehler A1, A2, A4, A6, A7 ([bekannte-probleme.md](bekannte-probleme.md)) als allgemeine Regeln R1–R5; automatische Zeilenerkennung | erledigt |
 | P1 | Probe v2: deutsche Sätze (Pangramm + häufige Paare), Groß/klein gemischt, Positionen; iPad-Webaufnahme | 6–8 Varianten, richtige Proportionen |
-| P2 | Engine ohne DOM: Layout + Silbentrennung, Zeilenmodell, Seeds pro Stelle, ein Pfad pro Zeile | kleinere PDFs, stabile Ausgabe |
+| **P2** ✓ | Engine ohne DOM: Layout + Silbentrennung, Zeilenmodell, Seeds pro Stelle, ein Pfad pro Zeile; `penclone render` | erledigt: [§13](#13-die-engine-ohne-browser-p2) |
 | P3 | Papier + Stifte + iPad-Stil; CLI, MCP-Server und Skill mit vollem Funktionsumfang | jeder Schritt per CLI, MCP oder Skill nutzbar |
 | P4 | Messen: OCR-Fehlerrate (deutsches TrOCR), HWD, Blindtest | Parameter begründet |
 | P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Schwellen keine Annahme mehr |

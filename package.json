@@ -1,0 +1,31 @@
+{
+  "name": "penclone",
+  "version": "0.1.0",
+  "description": "Text in your own handwriting, rendered from your real pen strokes",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "penclone": "bin/penclone.js"
+  },
+  "exports": {
+    ".": "./engine/index.js",
+    "./node": "./engine/node.js"
+  },
+  "files": [
+    "bin/",
+    "engine/",
+    "pipeline/*.py",
+    "pipeline/requirements.txt"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/migl06/penclone.git"
+  }
+}
