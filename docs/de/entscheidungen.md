@@ -66,7 +66,7 @@ darüber; nichts geht nur in einer Oberfläche und in der anderen nicht.
 | Optionale persönliche Ausnahme (normalerweise unnötig) | `penclone profile override …`, `profile block …` | – (bewusst nur CLI: soll selten sein) | fertig |
 | Proben am iPad aufnehmen (Zeit, Druck, Neigung) | `penclone capture NAME [--chars C]` | `start_capture` | **fertig** (aufgezeichnet; Zeit/Druck nutzt die Engine noch nicht) |
 | Felder auf einem Scan vorschlagen (optionale Hilfe) | `penclone detect-fields` | `detect_fields` | geplant |
-| Auf Seitenzahl einpassen | `penclone render --pages N` | Option | geplant |
+| Auf Seitenzahl einpassen | `penclone render --pages N` | Option `pages` von `render_handwriting` | **fertig** |
 | Lesbarkeit prüfen (OCR) | `penclone check` | `check_legibility` | geplant (P4) |
 | Handschrift-Schriftart (OpenType) | `penclone font` | `export_font` | später |
 
@@ -367,7 +367,7 @@ erzwungen.
 
 iPad-Aufnahmeseite (`lib/capture.js`, P1): kleiner Webserver im Heimnetz mit 128-Bit-Geheimlink, eine Zeichenfläche pro Blattseite, der Pencil schreibt und der Finger scrollt, Striche in pt vom Seitenanfang (die Pipeline liest sie wie einen PDF-Export) plus Zeit, Druck und Neigung; er beendet sich nach dem Import.
 
-Nicht in P3: detect-fields, `--pages N`, Textmarker, Kuli-Tintenmodell (Franke & Rose), Bleistift-Körnung im PDF.
+Nicht in P3: detect-fields, Textmarker, Kuli-Tintenmodell (Franke & Rose), Bleistift-Körnung im PDF.
 
 ## Zielarchitektur
 
@@ -396,7 +396,7 @@ Ausgaben: pdf · svg · png · xopp · excalidraw · inkml
 | **P0** ✓ | Glyphen-Fehler A1, A2, A4, A6, A7 ([bekannte-probleme.md](bekannte-probleme.md)) als allgemeine Regeln R1–R5; automatische Zeilenerkennung | erledigt |
 | P1 | Probe v2: deutsche Sätze (Pangramm + häufige Paare), Groß/klein gemischt, Positionen; iPad-Webaufnahme | 6–8 Varianten, richtige Proportionen |
 | **P2** ✓ | Engine ohne DOM: Layout + Silbentrennung, Zeilenmodell, Seeds pro Stelle, ein Pfad pro Zeile; `penclone render` | erledigt: [§13](#13-die-engine-ohne-browser-p2) |
-| **P3** ✓ | Papier (eingebaut + eigene Scans) + Stifte + iPad-Stil; Arbeitsblätter; CLI, MCP-Server und Skill mit vollem Umfang | erledigt: [§14](#14-papier-stifte-arbeitsblätter-mcp-server-und-skill-p3); offen: detect-fields, `--pages`, Textmarker, Tintenmodell |
+| **P3** ✓ | Papier (eingebaut + eigene Scans) + Stifte + iPad-Stil; Arbeitsblätter; CLI, MCP-Server und Skill mit vollem Umfang | erledigt: [§14](#14-papier-stifte-arbeitsblätter-mcp-server-und-skill-p3); offen: detect-fields, Textmarker, Tintenmodell |
 | P4 | Messen: OCR-Fehlerrate (deutsches TrOCR), HWD, Blindtest | Parameter begründet |
 | P5 | **Allgemeine Regeln mit anderen Schreibern prüfen**, datensparsam: `penclone validate` berechnet nur anonyme Statistiken (keine Striche, keine Bilder), die Freiwillige in einem Issue posten | Stufe 1 (IAM-OnDB) erledigt; Werkzeug + Issue-Formular fertig; Antworten sammeln offen |
 | P6 | **Paket und Anleitung**: ein npm-Paket (CLI + MCP-Server; Pipeline nach TypeScript portiert oder per pipx mitgeliefert, damit niemand Python von Hand einrichten muss) + Endnutzer-Anleitung (DE/EN) | Anleitung fertig ([anleitung.md](anleitung.md)); Installation von GitHub mit einem Befehl; offen: npm-Veröffentlichung, Python ohne Handarbeit |

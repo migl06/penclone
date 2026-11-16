@@ -111,6 +111,7 @@ never replaced by a font. The same `--seed` gives the same result, and changing 
 | `--paper` | `blank`, `lined`, `lined-narrow` / `-college` / `-wide` (US), `lin27`, `squared`, `lin22`, `lin26`, `lin28`, `dotted`, your template, or a scan file |
 | `--output`, `--pen` | `paper`: `ballpoint`, `fineliner`, `gel`, `fountain`, `pencil` · `ipad`: `pen`, `pencil` |
 | `--color`, `--size`, `--line-spacing`, `--grid`, `--margin`, `--page` | colour; x-height, distances in mm; page `a4`/`a5`/`letter`/`WxH` |
+| `--pages N` | fit the text to N pages (writes smaller if needed) |
 | output file | `.pdf`, `.svg`, `.png`, and editable ink: `.xopp` (Xournal++), `.inkml`, `.excalidraw` |
 
 **Worksheets and scanned pages:** the AI (or you) gives each answer a rough box; penclone straightens the scan, finds printed

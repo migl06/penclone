@@ -52,6 +52,7 @@ Options of render and fill:
   --line-spacing MM       line distance on blank paper (default ${LAYOUT.lineSpacing} mm); spacing of 'lined'
   --grid MM               square / dot size of 'squared' and 'dotted'
   --lang de               language for hyphenation; --no-hyphenation never splits words
+  --pages N               fit the text to N pages (writes smaller if needed)
   --seed N                another seed gives another, equally valid version (default 1)
   --glyph-set auto|v1|v2|both   which glyph library of the profile
   --json                  print the result as JSON
@@ -64,7 +65,7 @@ const RENDER_OPTS = {
   pen: { type: 'string' }, color: { type: 'string' }, width: { type: 'string' }, page: { type: 'string' },
   margin: { type: 'string' }, size: { type: 'string' }, 'line-spacing': { type: 'string' }, grid: { type: 'string' },
   lang: { type: 'string' }, 'no-hyphenation': { type: 'boolean' }, seed: { type: 'string' }, json: { type: 'boolean' },
-  fields: { type: 'string' }, 'sheet-page': { type: 'string' }, format: { type: 'string' },
+  fields: { type: 'string' }, 'sheet-page': { type: 'string' }, format: { type: 'string' }, pages: { type: 'string' },
 };
 
 const args = (argv, options, extra = {}) => parseArgs({ args: argv, allowPositionals: true, options: { ...options, help: { type: 'boolean', short: 'h' }, ...extra } });
@@ -74,7 +75,7 @@ function renderOpts(a) {
     profile: a.profile, glyphs: a.glyphs, layoutFile: a.layout, glyphSet: a['glyph-set'], out: a.out, text: a.text,
     paper: a.paper, output: a.output, pen: a.pen, color: a.color, width: a.width, page: a.page, margin: a.margin,
     size: a.size, lineSpacing: a['line-spacing'], grid: a.grid, lang: a.lang, hyphenation: !a['no-hyphenation'],
-    seed: a.seed, format: a.format,
+    seed: a.seed, format: a.format, pages: a.pages,
   };
 }
 
@@ -93,6 +94,7 @@ const commands = {
     if (a.json) return console.log(JSON.stringify(r, null, 1));
     console.log(`${r.files.join(', ')}: ${r.pages} page(s), ${r.lines} lines, x-height ${r.xHeightMm} mm, line spacing ${r.lineSpacingMm} mm`);
     console.log(`  paper ${r.paper}, ${r.output} / ${r.pen}; glyphs ${r.glyphs.join(' + ')}; from your samples: ${r.measuredFromSamples.join(', ') || 'nothing (defaults are assumptions)'}`);
+    if (r.fitted) console.log(`  fitted to ${r.fitted.pages} page(s): x-height ${r.fitted.xHeightMm} mm (natural ${r.fitted.natural} mm)`);
     if (Object.keys(r.substituted).length) console.log(`  drawn with a look-alike: ${list(r.substituted)}`);
     if (r.overflow.length) console.log(`  too long for a line, written past the margin: ${r.overflow.join(', ')}`);
     if (r.missingAdvice) console.log(`  not in your handwriting (left out): ${list(r.missing)}\n  to add them: ${r.missingAdvice.cli}`);

@@ -111,6 +111,7 @@ die anderen Zeilen gleich.
 | `--paper` | `blank`, `lined`, `lined-narrow` / `-college` / `-wide` (US), `lin27`, `squared`, `lin22`, `lin26`, `lin28`, `dotted`, deine Vorlage oder eine Scan-Datei |
 | `--output`, `--pen` | `paper`: `ballpoint` (Kuli), `fineliner`, `gel`, `fountain` (Füller), `pencil` (Bleistift) · `ipad`: `pen`, `pencil` |
 | `--color`, `--size`, `--line-spacing`, `--grid`, `--margin`, `--page` | Farbe; x-Höhe, Abstände in mm; Seite `a4`/`a5`/`letter`/`BxH` |
+| `--pages N` | Text auf N Seiten einpassen (schreibt kleiner, wenn nötig) |
 | Ausgabedatei | `.pdf`, `.svg`, `.png` und bearbeitbare Tinte: `.xopp` (Xournal++), `.inkml`, `.excalidraw` |
 
 **Arbeitsblätter und eingescannte Seiten:** Die KI (oder du) gibt jeder Antwort einen groben Kasten; penclone richtet den Scan

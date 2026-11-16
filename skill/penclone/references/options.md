@@ -13,6 +13,7 @@
 | `--size` | x-height in mm | measured from the samples |
 | `--line-spacing` | mm (blank paper; spacing of `lined`) | 8 |
 | `--grid` | mm (squared / dotted) | 5 |
+| `--pages N` | fit the text to N pages (smaller writing) | – |
 | `--seed N` | another, equally valid version | 1 |
 | `--no-hyphenation` | never split words | splits only against large gaps |
 

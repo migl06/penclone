@@ -176,3 +176,13 @@ test('iPad capture page: secret link, rejects bad uploads, imports a written cha
     c.stop();
   }
 });
+
+test('fit to N pages: smaller writing, never more pages than asked', async () => {
+  const text = Array.from({ length: 70 }, (_, i) => `Zeile ${i} mit etwas Text`).join('\n');
+  const free = await C.render({ text, out: join(HOME, 'p.pdf'), page: 'a5' });
+  assert.ok(free.pages >= 3);
+  const two = await C.render({ text, out: join(HOME, 'p2.pdf'), page: 'a5', pages: 2 });
+  assert.equal(two.pages, 2);
+  assert.ok(two.fitted.xHeightMm < two.fitted.natural);
+  await assert.rejects(C.render({ text: text.repeat(40), out: join(HOME, 'p3.pdf'), page: 'a5', pages: 1 }), /does not fit/);
+});

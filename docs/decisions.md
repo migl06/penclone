@@ -68,7 +68,7 @@ the same commands, so nothing is ever possible in one interface but not in the o
 | Optional personal override (normally not needed) | `penclone profile override …`, `profile block …` | – (CLI only on purpose: should be rare) | done |
 | Capture samples on the iPad (time, pressure, tilt) | `penclone capture NAME [--chars C]` | `start_capture` | **done** (recorded; time/pressure not used by the engine yet) |
 | Suggest fields on a scan (optional helper) | `penclone detect-fields` | `detect_fields` | planned |
-| Fit to a page count | `penclone render --pages N` | option | planned |
+| Fit to a page count | `penclone render --pages N` | option `pages` of `render_handwriting` | **done** |
 | Check legibility (OCR) | `penclone check` | `check_legibility` | planned (P4) |
 | Handwriting font (OpenType) | `penclone font` | `export_font` | later |
 
@@ -365,7 +365,7 @@ layers over it, the skill (`skill/penclone/`) drives the command line.** That is
 
 iPad capture page (`lib/capture.js`, P1): a small web server in the local network with a 128-bit secret link, one canvas per sheet page, Pencil writes and the finger scrolls, strokes stored in pt from the page top (the pipeline reads them like a PDF export) plus time, pressure and tilt; it stops after the import.
 
-Not done in P3: detect-fields, `--pages N`, highlighter, ballpoint ink model (Franke & Rose), pencil grain in PDF.
+Not done in P3: detect-fields, highlighter, ballpoint ink model (Franke & Rose), pencil grain in PDF.
 
 ## Target architecture
 
@@ -394,7 +394,7 @@ outputs: pdf · svg · png · xopp · excalidraw · inkml
 | **P0** ✓ | Glyph bugs A1, A2, A4, A6, A7 ([known-issues.md](known-issues.md)) as general rules R1–R5; automatic row detection | done |
 | P1 | Sample v2: German sentences (pangram + frequent pairs), mixed case, word positions; iPad web capture | 6–8 variants, correct proportions |
 | **P2** ✓ | DOM-free engine: layout + hyphenation, line model, per-position seeds, one path per line; `penclone render` | done: [§13](#13-the-engine-without-a-browser-p2) |
-| **P3** ✓ | Paper (built-in + own scans) + pens + iPad style; worksheets; CLI, MCP server and skill with full parity | done: [§14](#14-paper-pens-worksheets-mcp-server-and-skill-p3); open: detect-fields, `--pages`, highlighter, ink model |
+| **P3** ✓ | Paper (built-in + own scans) + pens + iPad style; worksheets; CLI, MCP server and skill with full parity | done: [§14](#14-paper-pens-worksheets-mcp-server-and-skill-p3); open: detect-fields, highlighter, ink model |
 | P4 | Measure: OCR error rate (German TrOCR), HWD, blind test | parameters justified |
 | P5 | **Validate the general rules with other writers**, privacy-preserving: `penclone validate` computes only anonymous statistics (no strokes, no images) that volunteers post in an issue | stage 1 (IAM-OnDB) done; tool + issue form done; collecting answers open |
 | P6 | **Packaging and user guide**: one npm package (CLI + MCP server; pipeline ported to TypeScript or shipped via pipx so users need no manual Python setup) + end-user guide (EN/DE) | guide done ([guide.md](guide.md)); install from GitHub with one command; open: npm release, Python without manual setup |
