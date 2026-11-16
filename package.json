@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "description": "Text in your own handwriting, rendered from your real pen strokes",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "bin": {
     "penclone": "bin/penclone.js"
@@ -24,6 +23,9 @@
     "docs/guide.md",
     "docs/de/anleitung.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },
