@@ -69,6 +69,12 @@ CONDITIONS = {
                narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.7}),
     'D4': dict(label='D1 with 0.9 x the measured clearance (the app default for the checked library)', base='D1', glyphs='curated', merge=True,
                mv=None, ms=True, narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.9}),
+    'E1': dict(label='D4 + 2 x shape variation per use', base='D4', glyphs='curated', merge=True, mv=None, ms=True, narrow=1.0,
+               style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.9, 'jitter': 2.0}),
+    'E2': dict(label='D4 + 2.5 x variation, 36 blends, wide blends', base='D4', glyphs='curated', merge=True, mv=None, ms=True, narrow=1.0,
+               morphs=36, spread=0.6, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.9, 'jitter': 2.5}),
+    'E3': dict(label='D4 + 3 x variation, 36 blends, wide blends', base='D4', glyphs='curated', merge=True, mv=None, ms=True, narrow=1.0,
+               morphs=36, spread=0.6, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.9, 'jitter': 3.0}),
     'D0': dict(label='D1 without the separation of letters', base='D1', glyphs='curated', merge=True, mv=None, ms=True,
                narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True}),
     'L1': dict(label='A6 without every occurrence (8 variants)', glyphs='v2', merge=True, mv=8, ms=True, style={'joins': True, **CONST_WIDTH}),
@@ -106,7 +112,7 @@ def glyphs_for(W, c, t):
         import glyph_qa
         key = ('curated', id(t))
         if key not in _CURATED:
-            _CURATED[key] = glyph_qa.curate(W.v1, t['glyphs'], morphs=c.get('morphs', 12), proportions=t.get('proportions'))[0]
+            _CURATED[key] = glyph_qa.curate(W.v1, t['glyphs'], morphs=c.get('morphs', 12), spread=c.get('spread', 0.25), proportions=t.get('proportions'))[0]
         return _CURATED[key]
     return H.with_fallback(t['glyphs'], W.v1, c.get('fb', 1))
 

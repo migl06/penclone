@@ -224,7 +224,7 @@ def _plain(v):
     return w
 
 
-def curate(v1, sent, morphs=12, seed=0, threshold=MIN_RECOGNISED, recogniser=None, use_sentence_shapes=False, proportions=None):
+def curate(v1, sent, morphs=12, spread=0.25, seed=0, threshold=MIN_RECOGNISED, recogniser=None, use_sentence_shapes=False, proportions=None):
     """Combine sheet-v1 glyphs `v1` and sentence glyphs `sent` into one library, see the module docstring.
 
     By default the shapes come from sheet v1 only (use_sentence_shapes=False): inspected by eye, even the sentence letters
@@ -233,6 +233,9 @@ def curate(v1, sent, morphs=12, seed=0, threshold=MIN_RECOGNISED, recogniser=Non
     recognised as its character from the writer's own separately written letters. The library holds, per character:
     the sheet-v1 letters (scaled to the writer's proportions in sentences), the admitted sentence letters, and `morphs`
     blends between pairs of those (new but never foreign shapes). Punctuation and symbols are sheet-v1 only.
+
+    spread: how far from the middle a blend may lie (0.25: between 0.25 and 0.75 of the way from one letter to the other;
+    above 0.5 slightly beyond the two letters).
 
     proportions: {'capital_height_em', 'ascender_height_em', 'x_height_em'} as measured on the sentences by build_glyphs_v2
     (report['proportions']). The writer's capitals and ascenders in running text are 1.6 x-heights high, on the alphabet
@@ -306,7 +309,7 @@ def curate(v1, sent, morphs=12, seed=0, threshold=MIN_RECOGNISED, recogniser=Non
             while len(made) < morphs and tries < morphs * 8:
                 tries += 1
                 i, j = rng.choice(len(pool), 2, replace=False)
-                m = morph(pool[i], pool[j], float(rng.uniform(0.25, 0.75)))
+                m = morph(pool[i], pool[j], float(rng.uniform(0.5 - spread, 0.5 + spread)))
                 if m is not None:
                     made.append(m)
             lib[ch] = pool + made

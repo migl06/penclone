@@ -23,7 +23,8 @@ Measured letter spacing is the largest single effect (HWD −0.57 for the writer
 IAM-OnDB writers), followed by glyph material (every occurrence instead of 8 variants, unsqueezed glyphs). Overall, HWD fell
 from 1.53 to 0.32 and the word-level classifier accuracy from 0.88 to 0.54 for the main writer. For the IAM writers, the
 ordering of the effects holds but the remaining gap is larger (HWD 0.50 against 0.34, classifier 0.58). Joins and
-centre-line word gaps remove defects that the image measures do not see. More variation per use lowers repetition of
+centre-line word gaps remove defects that the image measures do not see. A later version (Section 7.5) removes the
+defects the writer named (overlaps, wrong letters, stubs) at the price of worse image measures. More variation per use lowers repetition of
 identical letters towards the writer's own rate, at a cost in HWD. Generated writing remains distinguishable by a
 classifier. In a first informal test the writer named local defects that give the generated lines away (overlapping
 letters, wrong punctuation, wrong letters, stubs, cut-off words). The image measures do not capture them.
@@ -317,6 +318,40 @@ The word images of Section 6 hide all of these: at 10 px per x-height a stub or 
 measure uses the median clearance, not its tail with overlaps. HWD and C2ST on word images are therefore necessary but not
 sufficient. The next version needs measures for each defect class (share of overlapping letter pairs, stub count per line,
 punctuation size and position against the writer's, letter recognition rate).
+
+### 7.5 Removing the defects the writer named
+
+The defects of Section 7.4 were fixed in the engine and in the glyph library (`pipeline/glyph_qa.py`), and checked by
+counting instead of by a rater:
+
+- **Wrong letters, stubs, cut-off letters.** Cutting letters out of sentences is done by an algorithm and sometimes goes
+  wrong. Even letters that passed structural checks and a recogniser trained on the writer's own separately written letters
+  were partly unclean when inspected (doubled dots, extra loops). The shapes now come from the letters the writer wrote one
+  by one (sheet v1), which are right by construction. The sentences set the proportions: the writer's capitals and
+  ascenders are 1.63 x-heights high in running text and were written smaller on the sheet, and each letter is scaled to
+  that. Punctuation and symbols come from sheet v1 only (the sentence comma was a dot). Variants are made by blending
+  pairs of the writer's letters (same stroke structure), plus the per-use variation of the engine.
+- **Overlapping letters.** In the earlier conditions 73 of 1189 neighbouring letter pairs (6 %) overlapped in the ink,
+  because measured clearances can be smaller than the pen width and the box overlap was only limited to 0.25 em. Now the ink
+  of a letter keeps at least 0.025 em from the previous one and does not overlap the one before (`separate`). The very wide
+  tail of the measured clearances is cut at the 85th percentile so that a word is not torn apart, and word gaps are not
+  smaller than three quarters of the writer's lower quartile.
+
+**Table 5.** Writer A, held-out sentences, 2 folds × 5 seeds. B6 is the best earlier condition, E3 the new default.
+
+| | HWD ↓ | C2ST words | C2ST letters | twins | size CV | width CV | overlapping letter pairs |
+|---|---|---|---|---|---|---|---|
+| writer (reference) | 0.423 | 0.47 | 0.49 | 0.09 | 0.196 | 0.226 | – |
+| B6 sentence letters, joins, deck, … | 0.316 | 0.54 | 0.52 | 0.17 | 0.209 | 0.210 | 73 of 1189 |
+| E3 sheet-v1 letters at sentence proportions, blends, separated | 0.752 | 0.70 | 0.62 | 0.30 | 0.160 | 0.186 | **0 of 1223** |
+
+The visible defects are gone (no overlaps, no stubs, no foreign shapes), but the image measures got **worse**: a classifier
+now separates generated from real words in 70 % of the cases (B6: 54 %), HWD rises from 0.32 to 0.75, and 30 % of the
+letters have a near-identical twin (writer: 9 %). Letters written one by one are neater and more uniform than the same
+writer's letters in running text, and three letters per character give less variety than 30 or more cut-outs. More
+variation per use (jitter 3, wide blends) brought the twin rate down from 0.73 to 0.30 and the size variation from 0.07 to
+0.16 (writer 0.20). Whether this is the better trade for a human reader is not measured: the earlier test with the writer
+was invalid (Section 7.4), and no valid one has been run on this version.
 
 ## 8 Discussion
 
