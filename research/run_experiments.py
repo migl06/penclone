@@ -52,6 +52,14 @@ CONDITIONS = {
                style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True, 'jitter': 1.5}),
     'B9': dict(label='B6 + 2 x shape variation per use', base='B6', glyphs='v2', merge=True, mv=None, ms=True, narrow=1.0,
                style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True, 'jitter': 2.0}),
+    # round 4 (after the blind test): the separately written letters of sheet v1 as the shapes, the sentences only for habits
+    # (spacing, sizes, word gaps); 'hybrid' = sheet-v1 letters plus the sentence letters whose alignment cost is low
+    'C1': dict(label='B6 habits, shapes only from the alphabet sheet (3 variants)', base='B6', glyphs='v1', merge=True, mv=None, ms=True,
+               narrow=1.0, style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True}),
+    'C2': dict(label='B6 + alphabet sheet + sentence letters with cost <= 0.3', base='B6', glyphs='hybrid', merge=True, mv=None, ms=True,
+               narrow=1.0, cost=0.3, style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True}),
+    'C3': dict(label='B6 + alphabet sheet + sentence letters with cost <= 0.5', base='B6', glyphs='hybrid', merge=True, mv=None, ms=True,
+               narrow=1.0, cost=0.5, style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True}),
     'L1': dict(label='A6 without every occurrence (8 variants)', glyphs='v2', merge=True, mv=8, ms=True, style={'joins': True, **CONST_WIDTH}),
     'L2': dict(label='A6 without measured spacing', glyphs='v2', merge=True, mv=None, ms=False, style={'joins': True, **CONST_WIDTH}),
     'L3': dict(label='A6 without joins', glyphs='v2', merge=True, mv=None, ms=True, style={**CONST_WIDTH}),
@@ -81,7 +89,12 @@ def gen_job(args):
     cid, f, seed = args
     c = CONDITIONS[cid]
     t = W.train(f, *H.train_args(c))
-    glyphs = W.v1 if c['glyphs'] == 'v1' else H.with_fallback(t['glyphs'], W.v1, c.get('fb', 1))
+    if c['glyphs'] == 'v1':
+        glyphs = W.v1
+    elif c['glyphs'] == 'hybrid':
+        glyphs = {ch: list(W.v1.get(ch, [])) + list(t['glyphs'].get(ch, [])) for ch in set(W.v1) | set(t['glyphs'])}
+    else:
+        glyphs = H.with_fallback(t['glyphs'], W.v1, c.get('fb', 1))
     _, te = W.fold(f)
     texts = [W.man['lines'][i]['text'] for i in sorted(te)]
     pages, man, widths = H.render(texts, glyphs, t['layout'], f'{seed}', c['style'], c['ms'], t['xh_pt'], W.man)
