@@ -130,7 +130,100 @@ fold and writer, and conditions are compared across writers.
 
 ## 7 Results
 
-<!-- RESULTS:TABLES -->
+### 7.1 Writer A
+
+Table 1 lists every condition (mean over 2 folds × 5 seeds), Table 2 the paired differences that matter. *CER ratio* is the
+character error rate of TrOCR on the generated test words divided by its error rate on the writer's real test words
+(seed 1, both folds; §7.3).
+
+**Table 1.** Writer A, held-out sentences. Reference row: the writer's own training lines against the test lines.
+
+| | condition | HWD ↓ | C2ST words | C2ST letters | twins | spacing W1 ↓ | pen lifts / letter | join rate | word gap | CER ratio |
+|---|---|---|---|---|---|---|---|---|---|---|
+| | **writer A (reference)** | **0.423** | **0.47** | **0.49** | **0.10** | **0.029** | **1.31** | **0.079** | **1.43** | **1.00** |
+| A0 | alphabet sheet, 3 variants (previous default) | 1.530 | 0.88 | 0.65 | 0.69 | 0.185 | 1.38 | 0.037 | 1.55 | 0.34 |
+| A1 | sentence glyphs, 8 variants, cut pieces | 1.152 | 0.77 | 0.56 | 0.29 | 0.184 | 2.28 | 0.049 | 1.55 | |
+| A2 | + I1 pieces rejoined | 1.172 | 0.77 | 0.57 | 0.29 | 0.169 | 1.35 | 0.097 | 1.55 | |
+| A3 | + I2 every occurrence | 0.994 | 0.74 | 0.55 | 0.21 | 0.162 | 1.36 | 0.088 | 1.55 | |
+| A4 | + I3 measured spacing | 0.420 | 0.58 | 0.54 | 0.19 | 0.040 | 1.36 | 0.071 | 1.56 | |
+| A5 | + I4 joins | 0.437 | 0.58 | 0.54 | 0.19 | 0.037 | 1.32 | 0.093 | 1.56 | |
+| A6 | + I5 constant pen width | 0.432 | 0.59 | 0.55 | 0.20 | 0.037 | 1.32 | 0.097 | 1.55 | 0.91 |
+| A7 | + I6 uncertain cuts left out | 0.437 | 0.59 | 0.58 | 0.34 | 0.039 | 1.34 | 0.051 | 1.56 | |
+| L1 | A6 without I2 (8 variants) | 0.603 | 0.63 | 0.57 | 0.34 | 0.042 | 1.32 | 0.086 | 1.55 | |
+| L2 | A6 without I3 (fixed spacing) | 1.054 | 0.76 | 0.53 | 0.20 | 0.164 | 1.32 | 0.117 | 1.55 | |
+| L3 | A6 without I4 (no joins) | 0.409 | 0.59 | 0.54 | 0.17 | 0.039 | 1.36 | 0.071 | 1.55 | |
+| L4 | A6 without I1 (cut pieces, no joins) | 0.431 | 0.60 | 0.54 | 0.19 | 0.065 | 2.31 | 0.049 | 1.56 | |
+| B1 | A6 + deck | 0.414 | 0.59 | 0.54 | 0.16 | 0.044 | 1.33 | 0.108 | 1.55 | |
+| B2 | A6 + continuation | 0.410 | 0.57 | 0.54 | 0.23 | 0.030 | 1.32 | 0.100 | 1.55 | |
+| B3 | A6 + glyphs not squeezed | 0.331 | 0.57 | 0.53 | 0.19 | 0.035 | 1.32 | 0.075 | 1.55 | |
+| B4 | A6 + centre-line word gaps | 0.433 | 0.60 | 0.55 | 0.19 | 0.038 | 1.32 | 0.107 | 1.43 | |
+| B5 | A6 + 1.5 × variation per use | 0.430 | 0.59 | 0.54 | 0.14 | 0.038 | 1.32 | 0.101 | 1.55 | |
+| B6 | A6 + B1–B4 | 0.316 | 0.54 | 0.52 | 0.17 | 0.038 | 1.33 | 0.067 | 1.43 | 1.00 |
+| B7 | B6 without joins | 0.319 | 0.54 | 0.52 | 0.17 | 0.035 | 1.36 | 0.055 | 1.45 | |
+| B8 | B6 + 1.5 × variation per use | 0.321 | 0.55 | 0.53 | 0.14 | 0.036 | 1.33 | 0.078 | 1.44 | 1.00 |
+| B9 | B6 + 2 × variation per use | 0.333 | 0.56 | 0.52 | 0.09 | 0.036 | 1.33 | 0.087 | 1.44 | 1.01 |
+
+**Table 2.** Paired differences (10 pairs: same fold and seed), mean with 95 % bootstrap CI; Wilcoxon signed-rank p. With
+10 pairs the smallest possible p is 0.002.
+
+| comparison | HWD | C2ST words | C2ST letters | twins |
+|---|---|---|---|---|
+| A0 → A1 sentence glyphs instead of alphabet sheet | −0.378 [−0.409, −0.344] p=0.002 | −0.111 p=0.002 | −0.095 p=0.002 | −0.398 p=0.002 |
+| A1 → A2 pieces rejoined | +0.020 [+0.014, +0.027] p=0.002 | +0.004 p=0.23 | +0.009 p=0.28 | −0.001 p=0.87 |
+| A2 → A3 every occurrence | −0.179 [−0.198, −0.162] p=0.002 | −0.037 p=0.002 | −0.018 p=0.004 | −0.087 p=0.002 |
+| A3 → A4 measured spacing | −0.573 [−0.607, −0.539] p=0.002 | −0.152 p=0.002 | −0.007 p=0.32 | −0.020 p=0.23 |
+| A4 → A5 joins | +0.017 [+0.005, +0.029] p=0.049 | −0.003 p=0.77 | −0.002 p=0.77 | −0.000 p=1.00 |
+| A6 → A7 uncertain cuts left out | +0.005 [−0.035, +0.047] p=0.77 | +0.002 p=0.70 | +0.025 p=0.004 | +0.141 p=0.002 |
+| A6 → B1 deck | −0.019 [−0.039, +0.002] p=0.16 | −0.002 p=0.77 | −0.014 p=0.19 | −0.040 p=0.010 |
+| A6 → B2 continuation | −0.022 [−0.036, −0.007] p=0.037 | −0.013 p=0.38 | −0.014 p=0.064 | +0.029 p=0.23 |
+| A6 → B3 glyphs not squeezed | −0.101 [−0.150, −0.057] p=0.002 | −0.013 p=0.28 | −0.025 p=0.084 | −0.011 p=0.92 |
+| A6 → B5 1.5 × variation | −0.002 [−0.008, +0.003] p=0.56 | +0.004 p=0.70 | −0.016 p=0.027 | −0.054 p=0.004 |
+| A6 → B6 B1–B4 together | −0.116 [−0.165, −0.065] p=0.004 | −0.048 p=0.006 | −0.031 p=0.006 | −0.027 p=0.16 |
+| B6 → B8 1.5 × variation | +0.004 [−0.002, +0.011] p=0.38 | +0.013 p=0.23 | +0.004 p=0.38 | −0.034 p=0.064 |
+| B6 → B9 2 × variation | +0.016 [+0.006, +0.028] p=0.020 | +0.016 p=0.19 | −0.003 p=0.56 | −0.075 p=0.002 |
+| A0 → B6 overall | −1.214 [−1.238, −1.187] p=0.002 | −0.340 p=0.002 | −0.132 p=0.002 | −0.522 p=0.002 |
+
+**What the previous default got wrong.** Generated with the alphabet-sheet glyphs (A0), a linear classifier told generated
+from real words 88 % of the time. 69 % of the letters had a near-identical twin in the same text, against 10 % in the
+writer's own sentences. The text was also three times *more* legible to a recogniser than the writer's real hand (CER ratio
+0.34). Letters written one by one on an alphabet sheet are neater than letters in sentences, and that neatness is itself a
+tell.
+
+**What matters most.** Measured letter spacing is the largest single effect: −0.57 HWD when added (A3 → A4) and +0.62 when
+removed again (L2). With a fixed minimum clearance, letters stood 0.25 x-heights apart (median), against the writer's 0.41.
+The next largest effects come from the glyph material: sentence occurrences instead of alphabet letters (−0.38), every
+occurrence instead of 8 farthest-point variants (−0.18; removing it again: +0.17 and +0.15 twins), and unsqueezed glyphs
+(−0.10). The undocumented horizontal squeeze of 10 % in both glyph builders made every letter narrower than the writer's.
+
+**Defects that the image measures do not see.** Rejoining cut pieces (I1) brings the pen lifts per letter from 2.28 to 1.35,
+close to the writer's 1.31. In word images it is neutral (+0.02 HWD). It matters for editable ink output and for pen models
+that taper stroke ends, where every cut would show as a pinch. Centre-line word gaps (B4) fix a systematic error of one pen
+width per gap (1.55 → 1.43 x-heights, the writer's value), also without a measurable effect on the image measures.
+
+**What does not help.** Joins (I4) do not improve any image measure, and A4 → A5 is even slightly worse (+0.017 HWD).
+Leaving out uncertain cuts (I6) makes things worse: fewer variants mean more twins (+0.14), and the cuts it removes do not
+measurably hurt legibility.
+
+**Repetition against faithfulness.** Drawing variants with replacement gives about 1 − 1/e ≈ 63 % of the letters a sibling
+from the same source when a text needs as many letters as there are variants. The deck (B1) and more variation per use
+(B5, B8, B9) both lower the twin rate. Twice the variation (B9) reaches the writer's own rate (0.09 against 0.10) but costs
++0.016 HWD (p = 0.02). The best compromise depends on what the reader compares: repeated shapes on a page, or the overall
+look of words.
+
+**Legibility.** At equal sentences, TrOCR reads B6, B8 and B9 exactly as well as the writer's real hand (CER ratio 1.00–1.01).
+The absolute error rates are high (63 % for real writing), because the recogniser was trained on English handwriting and
+reads German words. More variation per use does not make the writing harder to read.
+
+### 7.2 Further writers (IAM-OnDB)
+
+<!-- RESULTS:IAM -->
+
+### 7.3 Legibility measurement
+
+TrOCR (`microsoft/trocr-base-handwritten`, the recogniser of the HWD reference implementation) read each word image
+rendered at 30 px per x-height. Comparison is case-insensitive and ignores accents and punctuation, because the recogniser
+does not know German umlauts. The ratio to the writer's own error rate on the same sentences is the measure. The absolute
+value describes the recogniser more than the writing.
 
 ## 8 Discussion
 
