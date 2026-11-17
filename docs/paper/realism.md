@@ -4,11 +4,28 @@
 
 ## Zusammenfassung (deutsch)
 
-<!-- RESULTS:SUMMARY_DE -->
+penclone schreibt Text in der eigenen Druckschrift einer Person. Wir messen, wie nah das Ergebnis an der echten Handschrift
+liegt, indem penclone Sätze schreibt, die beim Bau der Buchstaben nicht benutzt wurden, und das Ergebnis mit den echten
+Zeilen derselben Sätze vergleicht. Die Bewertung deckte einen Fehler auf (ein Buchstabenblatt mit zu ordentlichen Buchstaben)
+und mehrere fehlende Gewohnheiten, vor allem den gemessenen Abstand zwischen Buchstaben. Mit den Änderungen sank der
+Abstand zur echten Hand (HWD) für die Schreiberin bzw. den Schreiber, für den das System gebaut wurde, von 1,53 auf 0,32,
+und ein Klassifikator erkennt erzeugte Wörter nur noch in 54 % der Fälle (vorher 88 %; 50 % wäre Zufall). Bei 12 weiteren
+Schreibern einer öffentlichen Datenbank gilt dieselbe Reihenfolge der Effekte, der Rest-Abstand ist aber größer (HWD 0,50
+gegen 0,34; Klassifikator 58 %). Es bleibt ein messbarer Unterschied, und ob Menschen ihn sehen, haben wir nicht untersucht.
+
 
 ## Abstract
 
-<!-- RESULTS:ABSTRACT -->
+We evaluate a glyph-based handwriting synthesiser (penclone) against the writer's own held-out sentences, with identical
+code for real and generated lines. The evaluation exposed one defect (neat alphabet-sheet letters) and three missing habits.
+Measured letter spacing is the largest single effect (HWD −0.57 for the writer the system was built for, −0.80 across 12
+IAM-OnDB writers), followed by glyph material (every occurrence instead of 8 variants, unsqueezed glyphs). Overall, HWD fell
+from 1.53 to 0.32 and the word-level classifier accuracy from 0.88 to 0.54 for the main writer. For the IAM writers, the
+ordering of the effects holds but the remaining gap is larger (HWD 0.50 against 0.34, classifier 0.58). Joins and
+centre-line word gaps remove defects that the image measures do not see. More variation per use lowers repetition of
+identical letters towards the writer's own rate, at a cost in HWD. Generated writing remains distinguishable by a
+classifier. No study with human raters has been done.
+
 
 ## 1 Introduction
 
@@ -278,11 +295,44 @@ value describes the recogniser more than the writing.
 
 ## 8 Discussion
 
-<!-- RESULTS:DISCUSSION -->
+**Habits beat randomness.** Most of the gain came from matching measured habits (spacing, glyph size, use of every
+occurrence), not from adding noise. This agrees with Haines et al. [1], where learned spacing mattered more than the choice
+of glyphs, and it held on a second population. A tool that measures the habit it claims to model also finds mistakes in its
+own defaults: the undocumented 10 % squeeze and the fixed minimum clearance were invisible until compared with held-out
+writing.
+
+**A conservative reference.** For writer A, HWD of the generated lines (0.32) is lower than the writer's own training lines
+against the test lines (0.42), because the reference compares different sentences. It is therefore not evidence that the
+output is better than the real hand. The word-level classifier is the more honest measure, and it still tells generated from
+real words in 54 % of the cases.
+
+**Where the remaining difference probably lies.** The habits we measure (clearance, pen lifts, twin rate, word gaps) are
+close to the writer's. What differs is something they do not capture, such as the shape of whole words, the relation between
+neighbouring letters beyond clearance, and slow changes over a page. This is a hypothesis, not a measurement.
+
+**What to do next.** (1) A study with human raters, because every number here is from a model. (2) Contextual choice of
+variants: a letter's shape depends on its neighbours, and variants are now chosen mostly independently. (3) More writers with
+their own sheets instead of IAM lines. (4) Cursive, which needs another segmentation.
+
 
 ## 9 Limitations
 
-<!-- RESULTS:LIMITATIONS -->
+- **No human raters.** HWD, C2ST and TrOCR are models. Whether people tell the output from real writing next to a real page
+  is untested.
+- **One writer in depth.** Writer A is also the writer the system was built for, and the changes were found on this writer's
+  data. The IAM replication uses a different protocol (no alphabet sheet) and writers selected for separate letters, which
+  flatters the result.
+- **Print only.** Fully joined cursive cannot be segmented.
+- **Small samples.** Writer A has 34 sentences, of which 47 % are accepted by the alignment. 2 folds × 5 seeds give paired
+  tests with 10 pairs.
+- **Conservative and unconservative at once.** The human reference compares different sentences, so HWD and word C2ST of
+  the reference are pessimistic. The generated side shares sentences with its test lines, which is optimistic for word
+  measures.
+- **Recogniser mismatch.** TrOCR was trained on English, and the writer is German, so absolute error rates (63 % for real
+  writing) describe the recogniser; only ratios are used.
+- **Not isolated on IAM.** L1–L4, A7, B1, B2, B4, B5 and B7 were not run on IAM, so the effect of joins, deck and centre-line
+  gaps is shown only for writer A.
+
 
 ## 10 Reproducing
 
