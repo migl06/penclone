@@ -216,7 +216,58 @@ reads German words. More variation per use does not make the writing harder to r
 
 ### 7.2 Further writers (IAM-OnDB)
 
-<!-- RESULTS:IAM -->
+Does the ordering found for writer A hold for other hands? 12 IAM-OnDB writers (Section 5) went through the same
+protocol with the conditions that apply without an alphabet sheet. A0 and the ablations that need one (L1–L4, A7, B1, B2,
+B4, B5) were not run. Table 3 gives the mean over writers, each writer being the mean of both folds. The reference row is
+the writers' own training lines against their test lines. Its twin rate is the share of twins among the writers' real
+letters.
+
+**Table 3.** IAM-OnDB, 12 writers, mean ± SD over writers.
+
+| condition | HWD | C2ST words | C2ST letters | twins | clearance W1 | pen lifts / letter | join rate |
+|---|---|---|---|---|---|---|---|
+| writers (reference) | 0.335 | 0.49 | 0.49 | 0.12 | 0.043 | 1.26 | 0.121 |
+| A1 sentence glyphs, 8 variants, cut pieces | 1.637 ± 0.461 | 0.85 ± 0.04 | 0.58 ± 0.03 | 0.21 ± 0.03 | 0.391 ± 0.219 | 2.53 ± 0.17 | 0.018 ± 0.010 |
+| A3 + every occurrence | 1.505 ± 0.497 | 0.82 ± 0.06 | 0.55 ± 0.03 | 0.17 ± 0.04 | 0.343 ± 0.202 | 1.37 ± 0.07 | 0.128 ± 0.030 |
+| A4 + measured letter spacing | 0.703 ± 0.098 | 0.64 ± 0.03 | 0.55 ± 0.02 | 0.17 ± 0.04 | 0.061 ± 0.033 | 1.37 ± 0.07 | 0.087 ± 0.017 |
+| A6 + constant pen width | 0.668 ± 0.103 | 0.64 ± 0.02 | 0.55 ± 0.03 | 0.17 ± 0.03 | 0.062 ± 0.034 | 1.33 ± 0.06 | 0.115 ± 0.036 |
+| B3 A6 + glyphs not squeezed | 0.552 ± 0.101 | 0.60 ± 0.02 | 0.53 ± 0.03 | 0.16 ± 0.05 | 0.062 ± 0.033 | 1.33 ± 0.06 | 0.097 ± 0.024 |
+| B6 A6 + B1–B4 | 0.503 ± 0.093 | 0.58 ± 0.02 | 0.53 ± 0.03 | 0.13 ± 0.04 | 0.060 ± 0.031 | 1.33 ± 0.06 | 0.093 ± 0.023 |
+| B8 B6 + 1.5 × variation | 0.527 ± 0.102 | 0.58 ± 0.03 | 0.54 ± 0.03 | 0.11 ± 0.03 | 0.058 ± 0.029 | 1.33 ± 0.06 | 0.093 ± 0.025 |
+| B9 B6 + 2 × variation | 0.559 ± 0.111 | 0.60 ± 0.03 | 0.54 ± 0.02 | 0.08 ± 0.03 | 0.056 ± 0.026 | 1.33 ± 0.06 | 0.101 ± 0.021 |
+
+**Table 4.** Paired differences over writers (n = 12), mean with 95 % bootstrap CI; Wilcoxon signed-rank p. With 12 pairs
+the smallest possible p is 0.0005; "k/12" counts the writers for whom the value went down.
+
+| comparison | HWD | C2ST words | C2ST letters | twins |
+|---|---|---|---|---|
+| A1 → A3 every occurrence | −0.132 [−0.167, −0.096] p<0.001 (12/12) | −0.033 p=0.001 (11/12) | −0.033 p=0.003 (10/12) | −0.041 p=0.009 (10/12) |
+| A3 → A4 measured spacing | −0.802 [−1.069, −0.533] p<0.001 (12/12) | −0.184 p<0.001 (12/12) | +0.004 p=1.0 (7/12) | +0.002 p=0.85 (5/12) |
+| A4 → A6 constant pen width | −0.035 [−0.045, −0.024] p<0.001 (12/12) | −0.001 p=1.0 (7/12) | −0.000 p=1.0 (6/12) | +0.001 p=0.85 (5/12) |
+| A6 → B3 glyphs not squeezed | −0.116 [−0.141, −0.088] p<0.001 (12/12) | −0.036 p=0.001 (11/12) | −0.021 p=0.016 (10/12) | −0.016 p=0.20 (9/12) |
+| A6 → B6 B1–B4 together | −0.166 [−0.203, −0.128] p<0.001 (12/12) | −0.059 p<0.001 (12/12) | −0.016 p=0.007 (10/12) | −0.038 p<0.001 (12/12) |
+| B6 → B8 1.5 × variation | +0.024 [+0.016, +0.033] p<0.001 (0/12) | +0.004 p=0.30 (4/12) | +0.005 p=0.42 (4/12) | −0.025 p=0.042 (9/12) |
+| B6 → B9 2 × variation | +0.056 [+0.042, +0.073] p<0.001 (0/12) | +0.021 p=0.016 (1/12) | +0.005 p=0.38 (4/12) | −0.049 p=0.001 (11/12) |
+| A1 → B6 overall | −1.134 [−1.401, −0.875] p<0.001 (12/12) | −0.276 p<0.001 (12/12) | −0.045 p<0.001 (12/12) | −0.076 p<0.001 (12/12) |
+
+**The ordering of the effects carries over.** Measured letter spacing is again the largest single effect (−0.80 HWD, lower
+for all 12 writers), followed by unsqueezed glyphs (−0.12) and every occurrence instead of 8 variants (−0.13). The pen lifts
+per letter fall from 2.53 to 1.37 as soon as cut pieces are rejoined, next to 1.26 for the writers. The effect sizes are
+larger and vary more between writers than for writer A (SD of A1 HWD: 0.46). We did not test why. Candidate reasons are the smaller
+training material per writer and the different degree of neatness between writers.
+
+**The remaining gap is larger.** B6 reaches 0.503 HWD against 0.335 for the writers' own hand, and a linear classifier still
+separates generated from real words in 58 % of the cases (writer A: 54 %). Word-level C2ST for the reference is 0.49 because
+it compares two sets of real words. The gap is mostly in the word images, not in the habits: clearance (0.060 against 0.043),
+pen lifts and twin rate (0.13 against 0.12) are close.
+
+**More variation per use behaves as for writer A.** It lowers the twin rate towards the writers' (0.13 → 0.11 → 0.08 for B6,
+B8, B9) and costs HWD for every writer (+0.024 and +0.056). B8 matches the reference twin rate (0.11 against 0.12) at a
+small price, while B9 goes below it. This confirms the trade-off from Section 7.1 on a second population: how much
+variation is right depends on whether repeated shapes or the overall look of words is compared.
+
+**Joins.** The join rate of B6 (0.093) stays below the writers' 0.121. This run does not isolate joins (no L3 or B7
+equivalent), so nothing is claimed about their effect on the image measures.
 
 ### 7.3 Legibility measurement
 
