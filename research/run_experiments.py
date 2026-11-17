@@ -47,6 +47,11 @@ CONDITIONS = {
                style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True}),
     'B7': dict(label='B6 without joins', base='B6', glyphs='v2', merge=True, mv=None, ms=True, narrow=1.0,
                style={**CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True}),
+    # round 3: B6 with more shape variation per use (B5 lowered twins)
+    'B8': dict(label='B6 + 1.5 x shape variation per use', base='B6', glyphs='v2', merge=True, mv=None, ms=True, narrow=1.0,
+               style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True, 'jitter': 1.5}),
+    'B9': dict(label='B6 + 2 x shape variation per use', base='B6', glyphs='v2', merge=True, mv=None, ms=True, narrow=1.0,
+               style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True, 'jitter': 2.0}),
     'L1': dict(label='A6 without every occurrence (8 variants)', glyphs='v2', merge=True, mv=8, ms=True, style={'joins': True, **CONST_WIDTH}),
     'L2': dict(label='A6 without measured spacing', glyphs='v2', merge=True, mv=None, ms=False, style={'joins': True, **CONST_WIDTH}),
     'L3': dict(label='A6 without joins', glyphs='v2', merge=True, mv=None, ms=True, style={**CONST_WIDTH}),

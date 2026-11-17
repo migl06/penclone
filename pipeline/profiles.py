@@ -214,10 +214,16 @@ def build_v2(P, limit=0.9):
         return rc
     # line-level habits (word gaps, baseline drift) for the renderer, measured at the same x-height as the glyphs
     rep = json.load(open(os.path.join(P['_dir'], 'report-v2.json'), encoding='utf-8'))
+    lay_fn = os.path.join(P['_dir'], 'layout.json')
     cmd = [sys.executable, os.path.join(here, 'measure_layout.py'), '--pdf', written_file(P, V2),
-           '--manifest', os.path.join(src, 'sheet.json'), '--xheight-pt', str(rep['xheight_pt']),
-           '--out', os.path.join(P['_dir'], 'layout.json')]
-    return subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode
+           '--manifest', os.path.join(src, 'sheet.json'), '--xheight-pt', str(rep['xheight_pt']), '--out', lay_fn]
+    rc = subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode
+    if rc == 0 and rep.get('letter_spacing'):
+        # letter spacing comes from the aligned letters of the glyph build; the renderer reads it from layout.json
+        lay = json.load(open(lay_fn, encoding='utf-8'))
+        lay['letter_spacing'] = rep['letter_spacing']
+        json.dump(lay, open(lay_fn, 'w', encoding='utf-8'), indent=1)
+    return rc
 
 
 def set_chars(P, key, chars, add=True):

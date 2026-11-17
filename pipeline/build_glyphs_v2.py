@@ -5,7 +5,7 @@ Usage:
 
 Steps: strokes -> characters (segment_v2.py) -> per-line baseline (fit through the bottoms of letters without descender)
 -> size normalisation (x-height = 0.42 em, like sample sheet v1) -> drop outliers -> up to 8 varied variants per character
-(farthest-point choice on a small ink raster) -> glyph JSON in the same format as v1, plus a "pos" tag
+(farthest-point choice on a small ink raster; the command line keeps every occurrence) -> glyph JSON in the same format as v1, plus a "pos" tag
 (initial / medial / final / single) per variant. The report lists coverage per character and the measured proportions
 (capital / x-height, ascender / x-height), which sample sheet v1 could not measure (known issues A3, A5).
 
@@ -322,6 +322,9 @@ def main():
     ap.add_argument('--limit', type=float, default=0.9, help='largest accepted shape cost of one character with --templates (stricter = cleaner, fewer words)')
     ap.add_argument('--out', default='glyphs.json')
     ap.add_argument('--report', help='write the coverage report as JSON')
+    ap.add_argument('--max-variants', type=int, default=None,
+                    help='keep at most this many variants per character (default: every occurrence; docs/paper/realism.md)')
+    ap.add_argument('--narrow', type=float, default=1.0, help='horizontal scale of the glyphs (default 1.0: the writer\'s proportions)')
     a = ap.parse_args()
     man = json.load(open(a.manifest, encoding='utf-8'))
     pages = pages_from_pdf(a.pdf, max(l['page'] for l in man['lines']))
@@ -333,7 +336,8 @@ def main():
         occ, stats = segment(pages, man, Templates(json.load(open(a.templates, encoding='utf-8'))), sc, a.limit)
     for li, why in stats['skipped'][:10]:
         print('  skipped line', li, why)
-    glyphs, rep = build(occ)
+    # every occurrence, unsqueezed, with links to the next letter of the source word (docs/paper/realism.md, I2, B2, B3)
+    glyphs, rep = build(occ, a.max_variants, narrow=a.narrow, links=True)
     rep['segmentation'] = {k: v for k, v in stats.items() if k != 'skipped'} | {'skipped': len(stats['skipped'])}
     json.dump(glyphs, open(a.out, 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
     if a.report:

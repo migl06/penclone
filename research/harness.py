@@ -108,6 +108,12 @@ def with_fallback(glyphs, v1, min_variants=1):
     return out
 
 
+# The engine's behaviour when these experiments were run. Every condition is rendered with these values plus its own
+# style, so that later changes of the engine's defaults do not change the results of a re-run.
+LEGACY_STYLE = {'joins': False, 'deck': False, 'continuation': False, 'centreGaps': False,
+                'widthSd': 0.045, 'pressSd': 0.07, 'jitter': 1}
+
+
 def render(texts, glyphs, layout, seed, style, measured_spacing, xh_pt, man):
     """penclone writes `texts`, one per line; returns (pages, manifest, stroke widths) like a written sheet."""
     gap = man['lines'][1]['baseline'] - man['lines'][0]['baseline'] if man['lines'][1]['page'] == man['lines'][0]['page'] else 55.3
@@ -118,7 +124,7 @@ def render(texts, glyphs, layout, seed, style, measured_spacing, xh_pt, man):
         lay = dict(layout)
         lay['x_height_pt'] = xh_pt
         json.dump(lay, open(lf, 'w', encoding='utf-8'))
-        json.dump({'glyphs': [gf], 'layout': lf, 'texts': texts, 'seed': seed, 'style': style,
+        json.dump({'glyphs': [gf], 'layout': lf, 'texts': texts, 'seed': seed, 'style': {**LEGACY_STYLE, **style},
                    'measuredSpacing': measured_spacing, 'x0Pt': x0, 'firstBaselinePt': first, 'lineGapPt': gap,
                    'pageWidthPt': 2000}, open(sf, 'w', encoding='utf-8'), ensure_ascii=False)
         out = json.loads(subprocess.run(['node', os.path.join(ROOT, 'research', 'render_lines.mjs'), sf],
