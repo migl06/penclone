@@ -24,7 +24,7 @@ import harness as H  # noqa: E402
 from run_experiments import CONDITIONS  # noqa: E402
 from segment_v2 import assign_lines  # noqa: E402
 
-OUT = os.path.join(H.CACHE, 'blind')
+OUT = os.path.join(H.CACHE, 'blind')   # one sub-folder per condition from round 4 on (the first test, B6, sits directly in here)
 PX_PER_XH, S, PAD_XH = 16, 3, 0.8
 
 
@@ -83,15 +83,22 @@ const it=ITEMS[i];app.innerHTML='<div class="card"><small>'+(i+1)+' / '+ITEMS.le
 function pick(s){ans[ITEMS[i].id]=s;i++;show()}show();</script></html>"""
 
 
-def build(profile, n_pairs):
+def build(profile, n_pairs, cid='B6'):
+    global OUT
+    OUT = OUT if cid == 'B6' else os.path.join(OUT, cid)
     W = H.Writer(profile)
-    cond = CONDITIONS['B6']
+    cond = CONDITIONS[cid]
     rng = random.SystemRandom()
     cand = []
     for f in (0, 1):
         _, te = W.fold(f)
         t = W.train(f, *H.train_args(cond))
-        glyphs = H.with_fallback(t['glyphs'], W.v1, cond.get('fb', 1))
+        if cond['glyphs'] == 'v1':
+            glyphs = W.v1
+        elif cond['glyphs'] == 'hybrid':
+            glyphs = {ch: list(W.v1.get(ch, [])) + list(t['glyphs'].get(ch, [])) for ch in set(W.v1) | set(t['glyphs'])}
+        else:
+            glyphs = H.with_fallback(t['glyphs'], W.v1, cond.get('fb', 1))
         order = sorted(te)
         texts = [W.man['lines'][i]['text'] for i in order]
         gp, gm, _ = H.render(texts, glyphs, t['layout'], f'{rng.randrange(10**6)}', cond['style'], cond['ms'], t['xh_pt'], W.man)
@@ -116,7 +123,9 @@ def build(profile, n_pairs):
     print(f'key (do not open before the test) -> {os.path.join(OUT, "key.json")}')
 
 
-def score(fn):
+def score(fn, cid='B6'):
+    global OUT
+    OUT = OUT if cid == 'B6' else os.path.join(OUT, cid)
     key = json.load(open(os.path.join(OUT, 'key.json'), encoding='utf-8'))
     ans = json.load(open(fn, encoding='utf-8'))
     ok = sum(1 for q, s in ans.items() if key[q]['real'] == s)
@@ -130,5 +139,6 @@ if __name__ == '__main__':
     ap.add_argument('profile', nargs='?')
     ap.add_argument('--pairs', type=int, default=20)
     ap.add_argument('--score')
+    ap.add_argument('--condition', default='B6', help='condition of research/run_experiments.py that writes the generated lines')
     a = ap.parse_args()
-    score(a.score) if a.score else build(a.profile, a.pairs)
+    score(a.score, a.condition) if a.score else build(a.profile, a.pairs, a.condition)
