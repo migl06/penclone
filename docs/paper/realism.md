@@ -11,7 +11,9 @@ und mehrere fehlende Gewohnheiten, vor allem den gemessenen Abstand zwischen Buc
 Abstand zur echten Hand (HWD) für die Schreiberin bzw. den Schreiber, für den das System gebaut wurde, von 1,53 auf 0,32,
 und ein Klassifikator erkennt erzeugte Wörter nur noch in 54 % der Fälle (vorher 88 %; 50 % wäre Zufall). Bei 12 weiteren
 Schreibern einer öffentlichen Datenbank gilt dieselbe Reihenfolge der Effekte, der Rest-Abstand ist aber größer (HWD 0,50
-gegen 0,34; Klassifikator 58 %). Es bleibt ein messbarer Unterschied, und ob Menschen ihn sehen, haben wir nicht untersucht.
+gegen 0,34; Klassifikator 58 %). Es bleibt ein Unterschied: Der Schreiber selbst erkannte in einem Paartest mit 20 Sätzen bei allen 20 die echte Zeile
+(Fehlerklassen: sich überschneidende Buchstaben, unpassende Abstände, falsche Satzzeichen, falsche Buchstaben, Reste von
+abgebrochenen Strichen). Die Bildmaße erfassen diese lokalen Fehler nicht.
 
 
 ## Abstract
@@ -24,7 +26,8 @@ from 1.53 to 0.32 and the word-level classifier accuracy from 0.88 to 0.54 for t
 ordering of the effects holds but the remaining gap is larger (HWD 0.50 against 0.34, classifier 0.58). Joins and
 centre-line word gaps remove defects that the image measures do not see. More variation per use lowers repetition of
 identical letters towards the writer's own rate, at a cost in HWD. Generated writing remains distinguishable by a
-classifier. No study with human raters has been done.
+classifier, and by the writer: in a forced-choice test with 20 held-out sentences, the writer picked the real line every
+time (20 of 20). The image measures do not capture the local defects that gave it away.
 
 
 ## 1 Introduction
@@ -293,6 +296,25 @@ rendered at 30 px per x-height. Comparison is case-insensitive and ignores accen
 does not know German umlauts. The ratio to the writer's own error rate on the same sentences is the measure. The absolute
 value describes the recogniser more than the writing.
 
+### 7.4 Test with a human rater
+
+20 held-out sentences, each shown twice in random order: the writer's real line and penclone's line (condition B6, one
+seed). Both are drawn by the same code with the same pen width and scale, and size and ink amount differ by at most 5 %
+between the two sides, so neither gives the answer away (`research/blind_test.py`). The writer chose the real line in
+**20 of 20** pairs (chance: 10, p < 0.001).
+
+Asked afterwards, the writer named these giveaways, and we found them in the generated lines:
+1. Letters that overlap, and gaps that do not occur in the writer's hand.
+2. Punctuation of the wrong size or position (commas that look like dots or sit at the wrong height).
+3. Wrong letters, for example an *f* where a *t* belongs, a *2*-like shape in *zuletzt*, and *ß* missing in *Straße*.
+4. Dots and stubs where the pen stopped in the original, put into the line as if they were part of the letter.
+5. Words that end cut off (*Jahr* as *Jah*).
+
+The word images of Section 6 hide all of these: at 10 px per x-height a stub or a comma is a few pixels, and the spacing
+measure uses the median clearance, not its tail with overlaps. HWD and C2ST on word images are therefore necessary but not
+sufficient. The next version needs measures for each defect class (share of overlapping letter pairs, stub count per line,
+punctuation size and position against the writer's, letter recognition rate).
+
 ## 8 Discussion
 
 **Habits beat randomness.** Most of the gain came from matching measured habits (spacing, glyph size, use of every
@@ -310,15 +332,20 @@ real words in 54 % of the cases.
 close to the writer's. What differs is something they do not capture, such as the shape of whole words, the relation between
 neighbouring letters beyond clearance, and slow changes over a page. This is a hypothesis, not a measurement.
 
-**What to do next.** (1) A study with human raters, because every number here is from a model. (2) Contextual choice of
-variants: a letter's shape depends on its neighbours, and variants are now chosen mostly independently. (3) More writers with
-their own sheets instead of IAM lines. (4) Cursive, which needs another segmentation.
+**The human test contradicts the image measures.** In a forced-choice test (Section 7.4), the writer identified the real
+line in all 20 pairs, although the classifier on word images separates generated from real words in only 54 % of the cases.
+The measures above describe the average habit, and the writer sees local defects.
+
+**What to do next.** (1) Fix the defect classes of Section 7.4 and add measures for them. (2) More raters, because one rater
+who is also the writer is both the best and a biased judge. (3) Contextual choice of
+variants: a letter's shape depends on its neighbours, and variants are now chosen mostly independently. (4) More writers with
+their own sheets instead of IAM lines. (5) Cursive, which needs another segmentation.
 
 
 ## 9 Limitations
 
-- **No human raters.** HWD, C2ST and TrOCR are models. Whether people tell the output from real writing next to a real page
-  is untested.
+- **One human rater.** HWD, C2ST and TrOCR are models. The only human test had one rater, who is the writer (Section 7.4),
+  so it shows that the output can be told apart, not how often other people would manage it.
 - **One writer in depth.** Writer A is also the writer the system was built for, and the changes were found on this writer's
   data. The IAM replication uses a different protocol (no alphabet sheet) and writers selected for separate letters, which
   flatters the result.
