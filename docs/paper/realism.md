@@ -340,6 +340,7 @@ their own sheets instead of IAM lines. (4) Cursive, which needs another segmenta
 python3 research/run_experiments.py PROFILE      # writer A: ~25 min on 6 CPU cores
 python3 research/run_iam.py --writers 12         # IAM-OnDB writers
 python3 research/report.py research/results/PROFILE.json
+python3 research/blind_test.py PROFILE           # blind test for people (page + separate key, outside the repository)
 ```
 
 Setup of the HWD environment: [research/README.md](../../research/README.md). The result files hold numbers only.
