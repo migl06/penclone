@@ -105,7 +105,7 @@ def build(profile, n_pairs, cid='B6'):
         gl = lines_of(gp, gm)
         rl = lines_of(W.pages, H.sub_manifest(W.man, te))
         for j, li in enumerate(order):
-            real = rl.get(li) or rl.get(order.index(li))
+            real = rl.get(j)   # rl is keyed by the position inside the fold's sub-manifest
             if j in gl and real:
                 cand.append((texts[j], draw_line(real, t['xh_pt']), draw_line(gl[j], t['xh_pt'])))
     rng.shuffle(cand)
