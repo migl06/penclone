@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   loadLibrary, hyphenator, render, toSVG, toPDF, measured, shapeWord, wordBreaks, resolve, LAYOUT,
 } from '../engine/index.js';
+import { inkGap } from '../engine/shape.js';
 import { simplify } from '../engine/layout.js';
 import { prng } from '../engine/rng.js';
 
@@ -160,4 +161,20 @@ test('line simplification keeps the ends and stays within the tolerance', () => 
     const d = Math.min(...s.slice(1).map((b, i) => dist(p, s[i], b)));
     assert.ok(d <= 0.02 + 1e-9, String(d));
   }
+});
+
+test('separate: no two neighbouring letters overlap, and the white between them is at least the given value', () => {
+  // wide "letters" that would overlap with a negative measured clearance
+  const widths = lib.chars.get('a')[0];
+  const style = { separate: 0.025, clearance: [-0.2, -0.1, 0, 0.05] };
+  for (const w of ['aaaa', 'abcde', 'mmnn', 'hello']) {
+    const plain = shapeWord(lib, w, { seed: 3, key: [w, 1], style: { clearance: style.clearance } });
+    const sep = shapeWord(lib, w, { seed: 3, key: [w, 1], style });
+    for (let i = 1; i < sep.placed.length; i++) {
+      const a = sep.placed[i - 1], b = sep.placed[i];
+      assert.ok(inkGap(a.glyph, a.x, b.glyph, b.x) >= 0.025 - 1e-3, `${w}[${i}] keeps its distance`);
+    }
+    assert.ok(sep.width >= plain.width - 1e-9, 'separating never pulls letters closer');
+  }
+  assert.ok(widths);
 });

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Run a long command without letting the computer go to sleep meanwhile (the screen may still turn off).
+#
+#   tools/awake python3 research/run_experiments.py PROFILE
+#
+# Without this, the power manager suspends the machine when it is idle (logind: "suspend requested from xfce4-power-man")
+# and every running job freezes or dies. The block lasts only as long as the command runs.
+if [ $# -eq 0 ]; then echo "usage: tools/awake COMMAND [ARGS...]" >&2; exit 2; fi
+exec systemd-inhibit --what=sleep --who=penclone --why="long run: $1" --mode=block "$@"

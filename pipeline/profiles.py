@@ -212,6 +212,16 @@ def build_v2(P, limit=0.9):
     rc = subprocess.run(cmd).returncode
     if rc:
         return rc
+    if os.path.isfile(glyphs_path(P)):
+        # the library to write with: the letters written one by one at the writer's proportions, see glyph_qa.py
+        import glyph_qa
+        prop = json.load(open(os.path.join(P['_dir'], 'report-v2.json'), encoding='utf-8')).get('proportions')
+        lib, qa = glyph_qa.curate(json.load(open(glyphs_path(P), encoding='utf-8')), json.load(open(out, encoding='utf-8')),
+                                  proportions=prop)
+        json.dump(lib, open(os.path.join(P['_dir'], 'glyphs-v3.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+        json.dump(qa, open(os.path.join(P['_dir'], 'report-v3.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        print(f'glyphs-v3.json: {sum(len(v) for v in lib.values())} variants of {len(lib)} characters '
+              f'({sum(qa["morphs"].values())} of them blends of the writer\'s own letters)')
     # line-level habits (word gaps, baseline drift) for the renderer, measured at the same x-height as the glyphs
     rep = json.load(open(os.path.join(P['_dir'], 'report-v2.json'), encoding='utf-8'))
     lay_fn = os.path.join(P['_dir'], 'layout.json')

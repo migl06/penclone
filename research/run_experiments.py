@@ -60,6 +60,17 @@ CONDITIONS = {
                narrow=1.0, cost=0.3, style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True}),
     'C3': dict(label='B6 + alphabet sheet + sentence letters with cost <= 0.5', base='B6', glyphs='hybrid', merge=True, mv=None, ms=True,
                narrow=1.0, cost=0.5, style={'joins': True, **CONST_WIDTH, 'deck': True, 'continuation': True, 'centreGaps': True}),
+    # round 5: the library of pipeline/glyph_qa.py and letters that never touch
+    'D1': dict(label='curated sheet-v1 shapes + morphs, letters never touch', base='B6', glyphs='curated', merge=True, mv=None, ms=True,
+               narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025}),
+    'D2': dict(label='D1 with 0.85 x the measured clearance', base='D1', glyphs='curated', merge=True, mv=None, ms=True,
+               narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.85}),
+    'D3': dict(label='D1 with 0.7 x the measured clearance', base='D1', glyphs='curated', merge=True, mv=None, ms=True,
+               narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.7}),
+    'D4': dict(label='D1 with 0.9 x the measured clearance (the app default for the checked library)', base='D1', glyphs='curated', merge=True,
+               mv=None, ms=True, narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True, 'separate': 0.025, 'clearanceScale': 0.9}),
+    'D0': dict(label='D1 without the separation of letters', base='D1', glyphs='curated', merge=True, mv=None, ms=True,
+               narrow=1.0, style={**CONST_WIDTH, 'deck': True, 'centreGaps': True}),
     'L1': dict(label='A6 without every occurrence (8 variants)', glyphs='v2', merge=True, mv=8, ms=True, style={'joins': True, **CONST_WIDTH}),
     'L2': dict(label='A6 without measured spacing', glyphs='v2', merge=True, mv=None, ms=False, style={'joins': True, **CONST_WIDTH}),
     'L3': dict(label='A6 without joins', glyphs='v2', merge=True, mv=None, ms=True, style={**CONST_WIDTH}),
@@ -85,16 +96,29 @@ def real_job(f):
     return f, res
 
 
+def glyphs_for(W, c, t):
+    """The glyph library a condition writes with."""
+    if c['glyphs'] == 'v1':
+        return W.v1
+    if c['glyphs'] == 'hybrid':
+        return {ch: list(W.v1.get(ch, [])) + list(t['glyphs'].get(ch, [])) for ch in set(W.v1) | set(t['glyphs'])}
+    if c['glyphs'] == 'curated':      # pipeline/glyph_qa.py: sheet-v1 shapes at the writer's proportions, sentences only for scale
+        import glyph_qa
+        key = ('curated', id(t))
+        if key not in _CURATED:
+            _CURATED[key] = glyph_qa.curate(W.v1, t['glyphs'], morphs=c.get('morphs', 12), proportions=t.get('proportions'))[0]
+        return _CURATED[key]
+    return H.with_fallback(t['glyphs'], W.v1, c.get('fb', 1))
+
+
+_CURATED = {}
+
+
 def gen_job(args):
     cid, f, seed = args
     c = CONDITIONS[cid]
     t = W.train(f, *H.train_args(c))
-    if c['glyphs'] == 'v1':
-        glyphs = W.v1
-    elif c['glyphs'] == 'hybrid':
-        glyphs = {ch: list(W.v1.get(ch, [])) + list(t['glyphs'].get(ch, [])) for ch in set(W.v1) | set(t['glyphs'])}
-    else:
-        glyphs = H.with_fallback(t['glyphs'], W.v1, c.get('fb', 1))
+    glyphs = glyphs_for(W, c, t)
     _, te = W.fold(f)
     texts = [W.man['lines'][i]['text'] for i in sorted(te)]
     pages, man, widths = H.render(texts, glyphs, t['layout'], f'{seed}', c['style'], c['ms'], t['xh_pt'], W.man)

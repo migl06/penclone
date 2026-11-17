@@ -82,7 +82,7 @@ class Writer:
         glyphs, rep = build(occ, max_variants, max_cost, **({'narrow': narrow} if narrow is not None else {}), links=links)
         lay = measure(self.pages, sub_manifest(self.man, tr), xh_pt)
         lay['letter_spacing'] = rep['letter_spacing']
-        res = {'glyphs': glyphs, 'layout': lay, 'sc': sc, 'xh_pt': xh_pt,
+        res = {'glyphs': glyphs, 'layout': lay, 'sc': sc, 'xh_pt': xh_pt, 'proportions': rep.get('proportions'),
                'words_aligned': st['words_ok'], 'words': st['words']}
         os.makedirs(CACHE, exist_ok=True)
         json.dump(res, open(fn, 'w', encoding='utf-8'), ensure_ascii=False)

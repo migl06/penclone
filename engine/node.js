@@ -44,27 +44,28 @@ export function listProfileNames() {
   return readdirSync(h).filter((n) => !n.startsWith('.') && existsSync(join(h, n, 'profile.json'))).sort();
 }
 
-const GLYPH_SETS = { v1: ['glyphs.json'], v2: ['glyphs-v2.json'], both: ['glyphs.json', 'glyphs-v2.json'] };
+const GLYPH_SETS = { v1: ['glyphs.json'], v2: ['glyphs-v2.json'], v3: ['glyphs-v3.json'], both: ['glyphs.json', 'glyphs-v2.json'] };
 
 /**
  * Load a profile's glyph library and measured layout habits.
  * @param {string} name profile name or directory
- * @param {{glyphSet?: 'auto'|'v1'|'v2'|'both'}} [o] glyph library: auto = sheet v1 if built, else sheet v2.
+ * @param {{glyphSet?: 'auto'|'v1'|'v2'|'v3'|'both'}} [o] glyph library: auto = the checked library v3 if built, else sheet v1,
+ *        else sheet v2. v3 = letters written one by one at the proportions of the sentences (pipeline/glyph_qa.py).
  *        Characters added with character sheets (glyphs-chars.json) are always included.
  */
 export function loadProfile(name, o = {}) {
   const { dir, P } = readProfile(name);
   let set = o.glyphSet ?? 'auto';
-  if (set === 'auto') set = existsSync(join(dir, 'glyphs.json')) ? 'v1' : 'v2';
+  if (set === 'auto') set = existsSync(join(dir, 'glyphs-v3.json')) ? 'v3' : existsSync(join(dir, 'glyphs.json')) ? 'v1' : 'v2';
   const files = GLYPH_SETS[set];
-  if (!files) throw new Error(`unknown glyph set ${set}; use auto, v1, v2 or both`);
+  if (!files) throw new Error(`unknown glyph set ${set}; use auto, v1, v2, v3 or both`);
   const found = files.filter((f) => existsSync(join(dir, f)));
   if (!found.length) throw new Error(`profile ${name} has no glyphs yet (run: penclone profile build ${name})`);
   if (existsSync(join(dir, 'glyphs-chars.json'))) found.push('glyphs-chars.json');
   const lib = loadLibrary(...found.map((f) => readJson(join(dir, f))));
   const layoutFile = join(dir, 'layout.json');
   const layoutJson = existsSync(layoutFile) ? readJson(layoutFile) : null;
-  return { dir, P, lib, glyphFiles: found, layoutJson, layout: measured(layoutJson), preferences: P.preferences ?? {} };
+  return { dir, P, lib, glyphSet: set, glyphFiles: found, layoutJson, layout: measured(layoutJson), preferences: P.preferences ?? {} };
 }
 
 export function loadGlyphFile(fn, layoutFn) {

@@ -27,6 +27,9 @@ the results is [docs/paper/realism.md](../docs/paper/realism.md).
 
 ## Run it
 
+Long runs: start them with `tools/awake COMMAND`, otherwise the power manager may suspend the machine when it is idle and
+the run freezes.
+
 The HWD reference implementation needs PyTorch, which is kept in its own environment outside the repository:
 
 ```bash

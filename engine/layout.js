@@ -142,6 +142,12 @@ export function layout(lib, text, options = {}) {
   const style = { ...(o.style ?? {}) };
   if (style.clearance === undefined && o.letterClearance && o.measuredSpacing !== false) {
     style.clearance = o.letterClearance.map((v) => v * lib.xHeight);
+    if (style.separate !== undefined) {
+      // letters of one word stand together: the rare very wide gaps of the writer's distribution would tear a word apart
+      const q = o.letterClearance, cap = q[Math.min(q.length - 1, Math.floor((q.length - 1) * 0.85))] * lib.xHeight;
+      style.clearance = style.clearance.map((v) => Math.min(v, cap));
+    }
+    if (style.clearanceScale) style.clearance = style.clearance.map((v) => v * style.clearanceScale);
   }
   const missing = {}, substituted = {}, overflow = [];
   const seen = new Map();
@@ -156,7 +162,10 @@ export function layout(lib, text, options = {}) {
   };
   // measured word gaps are between the centre lines of the ink; glyph boxes include half a pen width on each side
   const penBox = style.centreGaps ? SHAPE.pen * k : 0;
-  const gapOf = (word) => lognormal(stream(seed, 'gap', ...word.key), o.wordGap) * xh - penBox;
+  // with separated letters a word gap is also never smaller than three quarters of the writer's lower quartile: a gap
+  // as small as the white between letters would glue two words together
+  const gapFloor = style.separate !== undefined ? 0.75 * o.wordGap.q1 * xh : 0;
+  const gapOf = (word) => Math.max(lognormal(stream(seed, 'gap', ...word.key), o.wordGap) * xh, gapFloor) - penBox;
 
   // 1. break into lines: [{words: [{word, x}], empty}] with x in mm from the line start
   /** @type {{words: {word: any, x: number}[]}[]} */

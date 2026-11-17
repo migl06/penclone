@@ -34,9 +34,9 @@ const NB = 30, BY0 = -1.1, BH = 0.05;
  * @typedef {{ch: string, polys: number[][][], filled: boolean, w: number, W: number, L: (number|null)[], R: (number|null)[]}} Glyph
  * @typedef {{glyph: Glyph, x: number, join?: boolean}} Placed
  * @typedef {{text: string, placed: Placed[], charStart: number[], width: number, missing: string[], substituted: string[], key: string[],
- *   spacing: {clear: (number|undefined)[], joined: boolean[]}}} Word
+ *   spacing: {clear: (number|undefined)[], joined: boolean[], separate?: number}}} Word
  * @typedef {{clearance?: number[], joins?: boolean, widthSd?: number, pressSd?: number, jitter?: number, continuation?: boolean,
- *   deck?: boolean, centreGaps?: boolean}} Style
+ *   deck?: boolean, centreGaps?: boolean, separate?: number, clearanceScale?: number}} Style
  *   clearance: quantiles (em) of the white between neighbouring letters, measured from the writer (else a fixed minimum);
  *   joins: join letters where the writer's variants were joined; widthSd / pressSd: pen width variation per letter / word;
  *   jitter: factor on every per-use shape variation (size, scale, rotation, shear, wobble), 1 = the values above;
@@ -44,6 +44,10 @@ const NB = 30, BY0 = -1.1, BH = 0.05;
  *   original clearance and join (unit selection as in Haines et al. 2016);
  *   deck: use every variant of a character once before any is used twice (in document order; editing a word then also
  *   changes the choice of later letters of the same characters);
+ *   clearanceScale: factor on the measured clearances (calibration, e.g. for a library whose letters are narrower than the
+ *   ones the clearance was measured on);
+ *   separate: white (em) that the ink of a letter keeps from the previous one at least; no letter overlaps the one before
+ *   that either (letters joined on purpose excepted). Off when undefined;
  *   centreGaps: word gaps measured between the centre lines of the ink are applied as such (else between glyph boxes,
  *   which adds one pen width to every gap).
  */
@@ -135,7 +139,32 @@ function prepare(ch, v, r, walk, penW, widthSd = SHAPE.widthSd, jitter = 1) {
       for (let k = 1; k < n; k++) mark(q[i - 1][0] + dx * k / n, q[i - 1][1] + dy * k / n);
     }
   }
-  return { ch, polys, filled: !!v.f, w, W, L, R, ji: v.ji, jo: v.jo };
+  return { ch, polys, filled: !!v.f, w, W, L, R, ji: v.ji, jo: v.jo, pts: samplePoints(polys, 0.03) };
+}
+
+/** Points along the strokes, at most `step` em apart (for exact distances between neighbouring letters). */
+function samplePoints(polys, step) {
+  const out = [];
+  for (const q of polys) {
+    for (let i = 0; i < q.length; i++) {
+      if (!i) { out.push(q[0]); continue; }
+      const dx = q[i][0] - q[i - 1][0], dy = q[i][1] - q[i - 1][1], n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / step));
+      for (let k = 1; k <= n; k++) out.push([q[i - 1][0] + dx * k / n, q[i - 1][1] + dy * k / n]);
+    }
+  }
+  return out;
+}
+
+/** Smallest white between the ink of glyph `a` at x = xa and glyph `b` at x = xb (em; negative where they overlap). */
+export function inkGap(a, xa, b, xb) {
+  let m = Infinity;
+  const pw = (a.w + b.w) / 2;
+  for (const [ax, ay] of a.pts) for (const [bx, by] of b.pts) {
+    const dx = ax + xa - bx - xb, dy = ay - by;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < m) m = d2;
+  }
+  return Math.sqrt(m) - pw;
 }
 
 /** Space after `prev` so that the ink of `g` keeps at least `clear` away from it (neighbouring bands included).
@@ -157,12 +186,27 @@ function gapBetween(prev, g, clear = SHAPE.clear, minGap = SHAPE.minGap) {
 /**
  * Positions of glyphs placed one after another.
  * @param {Glyph[]} glyphs
- * @param {{clear?: number[], joined?: boolean[]}} [o] clear: white between the ink of glyph i-1 and i (em) per glyph;
+ * @param {{clear?: number[], joined?: boolean[], separate?: number}} [o] separate: see below; clear: white between the ink of glyph i-1 and i (em) per glyph;
  *   joined: glyph i continues the exit stroke of glyph i-1 (its entry point is put on that exit point).
  */
 export function place(glyphs, o = {}) {
   /** @type {Placed[]} */ const out = [];
   let x = 0;
+  // `separate`: letters never touch. The ink of a letter keeps at least this much white (em) from the previous one, and
+  // does not overlap the one before that. Pairs that are joined on purpose are left alone.
+  const apart = (i, xi) => {
+    const sep = o.separate;
+    for (let it = 0; it < 12; it++) {
+      let need = 0;
+      for (const j of [i - 1, i - 2]) {
+        if (j < 0 || glyphs[i].pts === undefined || glyphs[j].pts === undefined) continue;
+        need = Math.max(need, (j === i - 1 ? sep : 0) - inkGap(glyphs[j], out[j].x, glyphs[i], xi));
+      }
+      if (need <= 1e-4) break;
+      xi += need + 0.002;
+    }
+    return xi;
+  };
   glyphs.forEach((g, i) => {
     if (i) {
       const p = glyphs[i - 1];
@@ -174,6 +218,7 @@ export function place(glyphs, o = {}) {
       } else {
         x += p.W + gapBetween(p, g);
       }
+      if (o.separate !== undefined && !(o.joined?.[i] && p.jo !== undefined && g.ji !== undefined)) x = apart(i, x);
     }
     out.push(o.joined?.[i] && i > 0 && glyphs[i - 1].jo !== undefined && g.ji !== undefined ? { glyph: g, x, join: true } : { glyph: g, x });
   });
@@ -248,7 +293,7 @@ export function shapeWord(lib, text, o) {
       prevV = vs[vi]; prevLetter = letter;
     }
   });
-  const spacing = { clear, joined };
+  const spacing = { clear, joined, separate: st.separate };
   const placed = place(glyphs, spacing);
   return { text, placed, charStart, width: wordWidth(placed), missing, substituted, key: o.key.map(String), spacing };
 }
@@ -284,9 +329,9 @@ export function splitWord(lib, word, at, o) {
     }
   }
   const sp = word.spacing ?? { clear: [], joined: [] };
-  const headSp = { clear: sp.clear.slice(0, gi), joined: sp.joined.slice(0, gi) };
+  const headSp = { clear: sp.clear.slice(0, gi), joined: sp.joined.slice(0, gi), separate: sp.separate };
   while (headSp.clear.length < headG.length) { headSp.clear.push(sp.clear[gi]); headSp.joined.push(false); }
-  const tailSp = { clear: [undefined, ...sp.clear.slice(gi + 1)], joined: [false, ...sp.joined.slice(gi + 1)] };
+  const tailSp = { clear: [undefined, ...sp.clear.slice(gi + 1)], joined: [false, ...sp.joined.slice(gi + 1)], separate: sp.separate };
   const head = place(headG, headSp), tail = place(tailG, tailSp);
   return [
     { ...word, text: headText, placed: head, width: wordWidth(head), charStart: headStart, spacing: headSp },
