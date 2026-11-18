@@ -55,7 +55,7 @@ Options of render and fill:
   --lang de               language for hyphenation; --no-hyphenation never splits words
   --pages N               fit the text to N pages (writes smaller if needed)
   --seed N                another seed gives another, equally valid version (default 1)
-  --glyph-set auto|v1|v2|both   which glyph library of the profile
+  --glyph-set auto|v1|v2|v3|both  which glyph library of the profile
   --json                  print the result as JSON
 
 Lengths accept mm (default), cm, in or pt, e.g. --size 2.4mm, --line-spacing 0.3in.`;

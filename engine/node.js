@@ -49,14 +49,14 @@ const GLYPH_SETS = { v1: ['glyphs.json'], v2: ['glyphs-v2.json'], v3: ['glyphs-v
 /**
  * Load a profile's glyph library and measured layout habits.
  * @param {string} name profile name or directory
- * @param {{glyphSet?: 'auto'|'v1'|'v2'|'v3'|'both'}} [o] glyph library: auto = the checked library v3 if built, else sheet v1,
- *        else sheet v2. v3 = letters written one by one at the proportions of the sentences (pipeline/glyph_qa.py).
+ * @param {{glyphSet?: 'auto'|'v1'|'v2'|'v3'|'both'}} [o] glyph library: auto = sheet v1 (the letters written one by one), else sheet v2.
+ *        v3 = letters written one by one at the proportions of the sentences (pipeline/glyph_qa.py).
  *        Characters added with character sheets (glyphs-chars.json) are always included.
  */
 export function loadProfile(name, o = {}) {
   const { dir, P } = readProfile(name);
   let set = o.glyphSet ?? 'auto';
-  if (set === 'auto') set = existsSync(join(dir, 'glyphs-v3.json')) ? 'v3' : existsSync(join(dir, 'glyphs.json')) ? 'v1' : 'v2';
+  if (set === 'auto') set = existsSync(join(dir, 'glyphs.json')) ? 'v1' : 'v2';
   const files = GLYPH_SETS[set];
   if (!files) throw new Error(`unknown glyph set ${set}; use auto, v1, v2, v3 or both`);
   const found = files.filter((f) => existsSync(join(dir, f)));
